@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Remote</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            text-align: center;
+            padding: 20px;
+            background: #1a1a1a;
+            color: white;
+        }
+
+        /* Hidden by default */
+        #poll-ui {
+            display: none;
+        }
+
+        #waiting-ui {
+            display: block;
+            margin-top: 50px;
+        }
+
+        .btn-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        button {
+            padding: 40px;
+            font-size: 24px;
+            border: none;
+            border-radius: 12px;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+        }
+
+        .btn-a {
+            background: #e63946;
+        }
+
+        .btn-b {
+            background: #457b9d;
+        }
+
+        .btn-c {
+            background: #e9c46a;
+            color: black;
+        }
+
+        .btn-d {
+            background: #2a9d8f;
+        }
+
+        button:active {
+            opacity: 0.7;
+            transform: scale(0.98);
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="waiting-ui">
+        <h2>👀 Eyes on the board</h2>
+        <p>Waiting for teacher to start...</p>
+    </div>
+
+    <div id="poll-ui">
+        <h2 id="question-text">Question?</h2>
+        <div class="btn-grid">
+            <button class="btn-a" onclick="submit('A')">A</button>
+            <button class="btn-b" onclick="submit('B')">B</button>
+            <button class="btn-c" onclick="submit('C')">C</button>
+            <button class="btn-d" onclick="submit('D')">D</button>
+        </div>
+        <p id="sent-msg" style="display:none; color: #4cd137;">Answer Sent!</p>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+
+        // UI Elements
+        const pollUI = document.getElementById('poll-ui');
+        const waitingUI = document.getElementById('waiting-ui');
+        const questionText = document.getElementById('question-text');
+        const sentMsg = document.getElementById('sent-msg');
+
+        // 1. LISTEN: Teacher starts poll
+        socket.on('start-poll', (text) => {
+            waitingUI.style.display = 'none';
+            pollUI.style.display = 'block';
+            questionText.innerText = text;
+            sentMsg.style.display = 'none'; // Reset feedback
+        });
+
+        // 2. LISTEN: Teacher stops poll
+        socket.on('stop-poll', () => {
+            waitingUI.style.display = 'block';
+            pollUI.style.display = 'none';
+        });
+
+        // 3. SEND: Student clicks button
+        function submit(answer) {
+            socket.emit('student-answer', answer);
+
+            // Visual feedback (UX is important!)
+            navigator.vibrate(50); // Little buzz on phone
+            sentMsg.style.display = 'block';
+
+            // Optional: Disable buttons to prevent spamming
+            // document.querySelectorAll('button').forEach(b => b.disabled = true);
+        }
+    </script>
+</body>
+
+</html>

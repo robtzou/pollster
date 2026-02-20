@@ -1,67 +1,64 @@
-import { useEffect, useState } from 'react';
-import io from 'socket.io-client';
+import { useEffect, useState } from 'react'
+import io from 'socket.io-client'
+import StartSession from './components/StartSession'
+import Create from './components/Create'
+import Settings from './components/Settings'
 
-// Connect to our own local server
-const socket = io('http://localhost:3000');
+const socket = io('http://localhost:3000')
+
+type Page = 'session' | 'create' | 'settings'
+
+const NAV_ITEMS: { key: Page; label: string; icon: string }[] = [
+  { key: 'session', label: 'Start Session', icon: '▶' },
+  { key: 'create', label: 'Create', icon: '📝' },
+  { key: 'settings', label: 'Settings', icon: '⚙️' }
+]
 
 function App() {
-  const [results, setResults] = useState({ A: 0, B: 0, C: 0, D: 0 });
-  const [status, setStatus] = useState("Idle");
+  const [currentPage, setCurrentPage] = useState<Page>('session')
+  const [serverUrl, setServerUrl] = useState<string>('')
 
   useEffect(() => {
-    // Listen for live updates from server
-    socket.on('update-results', (newResults) => {
-      setResults(newResults);
-    });
+    window.api.getServerUrl().then((url) => setServerUrl(url))
+  }, [])
 
-    return () => {
-      socket.off('update-results');
-    };
-  }, []);
-
-  const startPoll = () => {
-    setStatus("Active");
-    // Tell server to wake up the students
-    socket.emit('teacher-start-poll', "What is the capital of Maryland?");
-  };
-
-  const stopPoll = () => {
-    setStatus("Stopped");
-    socket.emit('teacher-stop-poll');
-  };
+  const renderPage = () => {
+    switch (currentPage) {
+      case 'session':
+        return <StartSession socket={socket} serverUrl={serverUrl} />
+      case 'create':
+        return <Create />
+      case 'settings':
+        return <Settings />
+    }
+  }
 
   return (
-    <div style={{ padding: 40, fontFamily: 'sans-serif' }}>
-      <h1>Teacher Dashboard</h1>
+    <div className="app-layout">
+      {/* Sidebar Navigation */}
+      <nav className="sidebar">
+        <div className="sidebar-brand">
+          <span className="sidebar-brand-icon">📊</span>
+          <span className="sidebar-brand-text">Pollster</span>
+        </div>
+        <div className="sidebar-nav">
+          {NAV_ITEMS.map((item) => (
+            <button
+              key={item.key}
+              className={`nav-btn${currentPage === item.key ? ' nav-btn-active' : ''}`}
+              onClick={() => setCurrentPage(item.key)}
+            >
+              <span className="nav-btn-icon">{item.icon}</span>
+              <span className="nav-btn-label">{item.label}</span>
+            </button>
+          ))}
+        </div>
+      </nav>
 
-      <div style={{ marginBottom: 20 }}>
-        Status: <strong>{status}</strong>
-      </div>
-
-      <button onClick={startPoll} style={{ padding: '10px 20px', marginRight: 10, background: 'green', color: 'white' }}>
-        Start Poll
-      </button>
-
-      <button onClick={stopPoll} style={{ padding: '10px 20px', background: 'red', color: 'white' }}>
-        Stop Poll
-      </button>
-
-      <div style={{ marginTop: 40, display: 'flex', gap: 20 }}>
-        {Object.keys(results).map(key => (
-          <div key={key} style={{
-            background: '#252a37ff',
-            padding: 20,
-            borderRadius: 8,
-            textAlign: 'center',
-            width: 60
-          }}>
-            <h2>{key}</h2>
-            <div style={{ fontSize: 40, fontWeight: 'bold' }}>{results[key]}</div>
-          </div>
-        ))}
-      </div>
+      {/* Page Content */}
+      <main className="page-content">{renderPage()}</main>
     </div>
-  );
+  )
 }
 
-export default App;
+export default App

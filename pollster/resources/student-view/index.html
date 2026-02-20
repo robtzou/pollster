@@ -31,14 +31,27 @@
             margin-top: 20px;
         }
 
-        button {
+        .btn-grid button {
             padding: 40px;
             font-size: 24px;
-            border: none;
+            border: 3px solid transparent;
             border-radius: 12px;
             font-weight: bold;
             color: white;
             cursor: pointer;
+            transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .btn-grid button.selected {
+            transform: scale(1.05);
+            border-color: white;
+            box-shadow: 0 0 16px rgba(255, 255, 255, 0.3);
+        }
+
+        .btn-grid button:disabled {
+            opacity: 0.5;
+            cursor: default;
+            transform: none;
         }
 
         .btn-a {
@@ -58,9 +71,27 @@
             background: #2a9d8f;
         }
 
-        button:active {
+        .btn-grid button:active:not(:disabled) {
             opacity: 0.7;
             transform: scale(0.98);
+        }
+
+        #confirm-btn {
+            display: none;
+            margin: 20px auto 0;
+            padding: 16px 48px;
+            font-size: 20px;
+            font-weight: bold;
+            border: none;
+            border-radius: 12px;
+            background: #4cd137;
+            color: #1a1a1a;
+            cursor: pointer;
+            transition: opacity 0.15s ease;
+        }
+
+        #confirm-btn:active {
+            opacity: 0.7;
         }
     </style>
 </head>
@@ -75,11 +106,12 @@
     <div id="poll-ui">
         <h2 id="question-text">Question?</h2>
         <div class="btn-grid">
-            <button class="btn-a" onclick="submit('A')">A</button>
-            <button class="btn-b" onclick="submit('B')">B</button>
-            <button class="btn-c" onclick="submit('C')">C</button>
-            <button class="btn-d" onclick="submit('D')">D</button>
+            <button class="btn-a" onclick="selectAnswer('A', this)">A</button>
+            <button class="btn-b" onclick="selectAnswer('B', this)">B</button>
+            <button class="btn-c" onclick="selectAnswer('C', this)">C</button>
+            <button class="btn-d" onclick="selectAnswer('D', this)">D</button>
         </div>
+        <button id="confirm-btn" onclick="confirmAnswer()">✓ Confirm Answer</button>
         <p id="sent-msg" style="display:none; color: #4cd137;">Answer Sent!</p>
     </div>
 
@@ -92,13 +124,26 @@
         const waitingUI = document.getElementById('waiting-ui');
         const questionText = document.getElementById('question-text');
         const sentMsg = document.getElementById('sent-msg');
+        const confirmBtn = document.getElementById('confirm-btn');
+
+        let selectedAnswer = null;
+        let submitted = false;
 
         // 1. LISTEN: Teacher starts poll
         socket.on('start-poll', (text) => {
             waitingUI.style.display = 'none';
             pollUI.style.display = 'block';
             questionText.innerText = text;
-            sentMsg.style.display = 'none'; // Reset feedback
+            sentMsg.style.display = 'none';
+            sentMsg.innerText = 'Answer Sent!';
+            confirmBtn.style.display = 'none';
+            selectedAnswer = null;
+            submitted = false;
+            // Re-enable and deselect all buttons
+            document.querySelectorAll('.btn-grid button').forEach(b => {
+                b.disabled = false;
+                b.classList.remove('selected');
+            });
         });
 
         // 2. LISTEN: Teacher stops poll
@@ -107,17 +152,37 @@
             pollUI.style.display = 'none';
         });
 
-        // 3. SEND: Student clicks button
-        function submit(answer) {
-            socket.emit('student-answer', answer);
-
-            // Visual feedback (UX is important!)
-            navigator.vibrate(50); // Little buzz on phone
-            sentMsg.style.display = 'block';
-
-            // Optional: Disable buttons to prevent spamming
-            // document.querySelectorAll('button').forEach(b => b.disabled = true);
+        // 3. SELECT: Student taps an answer
+        function selectAnswer(answer, btn) {
+            if (submitted) return;
+            selectedAnswer = answer;
+            // Highlight only the selected button
+            document.querySelectorAll('.btn-grid button').forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+            // Show the confirm button
+            confirmBtn.style.display = 'block';
         }
+
+        // 4. CONFIRM: Student locks in their answer
+        function confirmAnswer() {
+            if (!selectedAnswer || submitted) return;
+            submitted = true;
+
+            socket.emit('student-answer', selectedAnswer);
+
+            navigator.vibrate(50);
+            sentMsg.style.display = 'block';
+            confirmBtn.style.display = 'none';
+
+            // Disable all buttons
+            document.querySelectorAll('.btn-grid button').forEach(b => b.disabled = true);
+        }
+
+        // Server rejected duplicate answer
+        socket.on('already-answered', () => {
+            sentMsg.innerText = 'You already answered this question!';
+            sentMsg.style.display = 'block';
+        });
     </script>
 </body>
 

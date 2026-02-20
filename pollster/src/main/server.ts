@@ -39,6 +39,7 @@ export async function startServer() {
         question: "Is this working?",
         results: { A: 0, B: 0, C: 0, D: 0 }
     };
+    const votedStudents = new Set<string>();
 
     // 1. Serve Student File
     app.get('/', (_req, reply) => {
@@ -51,10 +52,18 @@ export async function startServer() {
     io.on('connection', (socket) => {
         console.log('User connected:', socket.id);
 
+        // Broadcast updated player count
+        io.emit('player-count', io.engine.clientsCount);
+
         // If a student joins mid-poll, send them the current state immediately
         if (currentPoll.active) {
             socket.emit('start-poll', currentPoll.question);
         }
+
+        socket.on('disconnect', () => {
+            console.log('User disconnected:', socket.id);
+            io.emit('player-count', io.engine.clientsCount);
+        });
 
         // --- TEACHER COMMANDS ---
         socket.on('teacher-start-poll', (questionText) => {
@@ -62,6 +71,7 @@ export async function startServer() {
             currentPoll.active = true;
             currentPoll.question = questionText;
             currentPoll.results = { A: 0, B: 0, C: 0, D: 0 };
+            votedStudents.clear();
 
             console.log('Starting poll:', questionText);
 
@@ -79,11 +89,17 @@ export async function startServer() {
         socket.on('student-answer', (answerKey) => { // answerKey = 'A', 'B', etc.
             if (!currentPoll.active) return; // Ignore if poll is closed
 
+            // Only allow one answer per student per question
+            if (votedStudents.has(socket.id)) {
+                socket.emit('already-answered');
+                return;
+            }
+
             // Increment count
             if (currentPoll.results[answerKey] !== undefined) {
+                votedStudents.add(socket.id);
                 currentPoll.results[answerKey]++;
 
-                // Notify ONLY the teacher (Optimization: Students don't need to see live counts yet)
                 io.emit('update-results', currentPoll.results);
             }
         });

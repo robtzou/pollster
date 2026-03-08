@@ -97,6 +97,17 @@ export default function StartSession({ socket, serverUrl }: StartSessionProps) {
     const [quizStarted, setQuizStarted] = useState(false)
     const [showAnswer, setShowAnswer] = useState(false)
 
+    // Leaderboard state
+    const [leaderboard, setLeaderboard] = useState<{ uuid: string; name: string; total_answers: number; correct_answers: number }[]>([])
+    const [showLeaderboard, setShowLeaderboard] = useState(false)
+
+    // PDF Presentation state
+    const [pdfName, setPdfName] = useState<string | null>(null)
+    const [pdfLoaded, setPdfLoaded] = useState(false)
+    const [presenting, setPresenting] = useState(false)
+    const [pdfPage, setPdfPage] = useState(1)
+    const [totalPages, setTotalPages] = useState(0)
+
     const currentQ = QUIZ[questionIndex]
 
     const exitFullScreen = useCallback(() => setFullScreen(false), [])
@@ -129,13 +140,19 @@ export default function StartSession({ socket, serverUrl }: StartSessionProps) {
         setQuestionIndex(0)
         setShowAnswer(false)
         setStatus('active')
-        socket.emit('teacher-start-poll', QUIZ[0].question)
+        socket.emit('teacher-start-poll', {
+            question: QUIZ[0].question,
+            correct: QUIZ[0].correct,
+            questionCount: QUIZ.length
+        })
     }
 
     const revealAnswer = () => {
         setShowAnswer(true)
         setStatus('stopped')
         socket.emit('teacher-stop-poll')
+        // Refresh leaderboard
+        window.api.getLeaderboard().then(setLeaderboard)
     }
 
     const nextQuestion = () => {
@@ -144,12 +161,17 @@ export default function StartSession({ socket, serverUrl }: StartSessionProps) {
             setStatus('finished')
             setQuizStarted(false)
             setShowAnswer(false)
+            socket.emit('teacher-end-session')
+            window.api.getLeaderboard().then(setLeaderboard)
             return
         }
         setQuestionIndex(next)
         setShowAnswer(false)
         setStatus('active')
-        socket.emit('teacher-start-poll', QUIZ[next].question)
+        socket.emit('teacher-start-poll', {
+            question: QUIZ[next].question,
+            correct: QUIZ[next].correct
+        })
     }
 
     const resetQuiz = () => {
@@ -158,7 +180,50 @@ export default function StartSession({ socket, serverUrl }: StartSessionProps) {
         setShowAnswer(false)
         setStatus('idle')
         setResults({ A: 0, B: 0, C: 0, D: 0 })
+        setLeaderboard([])
+        setShowLeaderboard(false)
         socket.emit('teacher-stop-poll')
+        socket.emit('teacher-end-session')
+    }
+
+    // --- PDF Presentation functions ---
+    const selectPdf = async () => {
+        const filePath = await window.api.selectPdf()
+        if (!filePath) return
+
+        await window.api.uploadPdf(filePath)
+        const name = filePath.split('/').pop() || filePath.split('\\').pop() || 'document.pdf'
+        setPdfName(name)
+        setPdfLoaded(true)
+        setPresenting(false)
+        setPdfPage(1)
+
+        try {
+            const resp = await fetch('http://localhost:3000/pdf-info')
+            const info = await resp.json()
+            setTotalPages(info.totalPages || 0)
+        } catch (e) {
+            console.error('Failed to get PDF info:', e)
+        }
+    }
+
+    const startPresenting = () => {
+        if (!pdfLoaded || totalPages === 0) return
+        setPresenting(true)
+        setPdfPage(1)
+        socket.emit('pdf-start', { totalPages })
+    }
+
+    const stopPresenting = () => {
+        setPresenting(false)
+        setPdfPage(1)
+        socket.emit('pdf-stop')
+    }
+
+    const goToPage = (page: number) => {
+        if (page < 1 || page > totalPages) return
+        setPdfPage(page)
+        socket.emit('pdf-page', { page })
     }
 
     // --- Full Screen Presentation Mode ---
@@ -672,6 +737,252 @@ export default function StartSession({ socket, serverUrl }: StartSessionProps) {
                                 <div style={{ fontSize: 40, fontWeight: 'bold' }}>{results[key]}</div>
                             </div>
                         ))}
+                    </div>
+
+                    {/* --- Leaderboard Section --- */}
+                    <div
+                        style={{
+                            marginTop: 40,
+                            padding: 24,
+                            background: '#1e2230',
+                            borderRadius: 12,
+                            border: '1px solid rgba(255,255,255,0.06)'
+                        }}
+                    >
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: showLeaderboard ? 16 : 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                <span style={{ fontSize: 20 }}>🏆</span>
+                                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>Leaderboard</h3>
+                            </div>
+                            <button
+                                onClick={() => {
+                                    window.api.getLeaderboard().then(setLeaderboard)
+                                    setShowLeaderboard(!showLeaderboard)
+                                }}
+                                style={{
+                                    padding: '6px 14px',
+                                    background: 'rgba(255,255,255,0.08)',
+                                    color: '#fff',
+                                    border: 'none',
+                                    borderRadius: 6,
+                                    fontSize: 12,
+                                    cursor: 'pointer',
+                                    fontWeight: 600
+                                }}
+                            >
+                                {showLeaderboard ? 'Hide' : 'Show'}
+                            </button>
+                        </div>
+
+                        {showLeaderboard && (
+                            leaderboard.length === 0 ? (
+                                <div style={{ fontSize: 14, color: '#8892a4', textAlign: 'center', padding: 16 }}>
+                                    No responses yet. Start a quiz and students will appear here.
+                                </div>
+                            ) : (
+                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+                                    <thead>
+                                        <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+                                            <th style={{ textAlign: 'left', padding: '8px 12px', opacity: 0.5, fontWeight: 600 }}>#</th>
+                                            <th style={{ textAlign: 'left', padding: '8px 12px', opacity: 0.5, fontWeight: 600 }}>Student</th>
+                                            <th style={{ textAlign: 'center', padding: '8px 12px', opacity: 0.5, fontWeight: 600 }}>Score</th>
+                                            <th style={{ textAlign: 'center', padding: '8px 12px', opacity: 0.5, fontWeight: 600 }}>Accuracy</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {leaderboard.map((entry, i) => {
+                                            const pct = entry.total_answers > 0 ? Math.round((entry.correct_answers / entry.total_answers) * 100) : 0
+                                            return (
+                                                <tr key={entry.uuid} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                                                    <td style={{ padding: '10px 12px', fontWeight: 700, opacity: 0.5, width: 32 }}>{i + 1}</td>
+                                                    <td style={{ padding: '10px 12px', fontWeight: 600 }}>{entry.name}</td>
+                                                    <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                                                        <span style={{ color: '#2ecc71', fontWeight: 700 }}>{entry.correct_answers}</span>
+                                                        <span style={{ opacity: 0.4 }}> / {entry.total_answers}</span>
+                                                    </td>
+                                                    <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                                                        <span
+                                                            style={{
+                                                                background: pct >= 70 ? 'rgba(46,204,113,0.15)' : pct >= 40 ? 'rgba(241,196,15,0.15)' : 'rgba(231,76,60,0.15)',
+                                                                color: pct >= 70 ? '#2ecc71' : pct >= 40 ? '#f1c40f' : '#e74c3c',
+                                                                padding: '2px 8px',
+                                                                borderRadius: 6,
+                                                                fontSize: 12,
+                                                                fontWeight: 700
+                                                            }}
+                                                        >
+                                                            {pct}%
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            )
+                                        })}
+                                    </tbody>
+                                </table>
+                            )
+                        )}
+                    </div>
+
+                    {/* --- PDF Presentation Section --- */}
+                    <div
+                        style={{
+                            marginTop: 40,
+                            padding: 24,
+                            background: '#1e2230',
+                            borderRadius: 12,
+                            border: presenting
+                                ? '1px solid rgba(46,204,113,0.3)'
+                                : '1px solid rgba(255,255,255,0.06)'
+                        }}
+                    >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+                            <span style={{ fontSize: 20 }}>📄</span>
+                            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>PDF Presentation</h3>
+                            {presenting && (
+                                <span
+                                    style={{
+                                        background: 'rgba(46,204,113,0.15)',
+                                        color: '#2ecc71',
+                                        padding: '2px 10px',
+                                        borderRadius: 20,
+                                        fontSize: 12,
+                                        fontWeight: 700
+                                    }}
+                                >
+                                    🔴 LIVE
+                                </span>
+                            )}
+                        </div>
+
+                        {!pdfLoaded ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                <button
+                                    onClick={selectPdf}
+                                    style={{
+                                        padding: '8px 20px',
+                                        background: 'linear-gradient(135deg, #667eea, #764ba2)',
+                                        color: '#fff',
+                                        border: 'none',
+                                        borderRadius: 6,
+                                        fontSize: 13,
+                                        fontWeight: 600,
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    📁 Choose PDF
+                                </button>
+                                <span style={{ fontSize: 13, color: '#8892a4' }}>No file selected</span>
+                            </div>
+                        ) : (
+                            <>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{ fontSize: 14, fontWeight: 600 }}>{pdfName}</div>
+                                        <div style={{ fontSize: 12, color: '#8892a4', marginTop: 2 }}>
+                                            {totalPages} page{totalPages !== 1 ? 's' : ''}
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={selectPdf}
+                                        style={{
+                                            padding: '4px 12px',
+                                            background: 'rgba(255,255,255,0.08)',
+                                            color: '#fff',
+                                            border: 'none',
+                                            borderRadius: 6,
+                                            fontSize: 12,
+                                            cursor: 'pointer',
+                                            opacity: 0.7
+                                        }}
+                                    >
+                                        Change
+                                    </button>
+                                </div>
+
+                                {!presenting ? (
+                                    <button
+                                        onClick={startPresenting}
+                                        style={{
+                                            padding: '8px 20px',
+                                            background: '#2ecc71',
+                                            color: '#fff',
+                                            border: 'none',
+                                            borderRadius: 6,
+                                            fontSize: 13,
+                                            fontWeight: 600,
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        ▶ Start Presenting
+                                    </button>
+                                ) : (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                        <button
+                                            onClick={() => goToPage(pdfPage - 1)}
+                                            disabled={pdfPage <= 1}
+                                            style={{
+                                                width: 36,
+                                                height: 36,
+                                                background: pdfPage <= 1 ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.1)',
+                                                border: 'none',
+                                                borderRadius: 8,
+                                                color: '#fff',
+                                                fontSize: 18,
+                                                cursor: pdfPage <= 1 ? 'not-allowed' : 'pointer',
+                                                opacity: pdfPage <= 1 ? 0.3 : 1
+                                            }}
+                                        >
+                                            ‹
+                                        </button>
+                                        <div
+                                            style={{
+                                                fontSize: 18,
+                                                fontWeight: 700,
+                                                fontVariantNumeric: 'tabular-nums',
+                                                minWidth: 80,
+                                                textAlign: 'center'
+                                            }}
+                                        >
+                                            {pdfPage}{' '}
+                                            <span style={{ fontSize: 13, opacity: 0.4, fontWeight: 500 }}>/ {totalPages}</span>
+                                        </div>
+                                        <button
+                                            onClick={() => goToPage(pdfPage + 1)}
+                                            disabled={pdfPage >= totalPages}
+                                            style={{
+                                                width: 36,
+                                                height: 36,
+                                                background: pdfPage >= totalPages ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.1)',
+                                                border: 'none',
+                                                borderRadius: 8,
+                                                color: '#fff',
+                                                fontSize: 18,
+                                                cursor: pdfPage >= totalPages ? 'not-allowed' : 'pointer',
+                                                opacity: pdfPage >= totalPages ? 0.3 : 1
+                                            }}
+                                        >
+                                            ›
+                                        </button>
+                                        <div style={{ flex: 1 }} />
+                                        <button
+                                            onClick={stopPresenting}
+                                            style={{
+                                                padding: '6px 14px',
+                                                background: '#e74c3c',
+                                                color: '#fff',
+                                                border: 'none',
+                                                borderRadius: 6,
+                                                fontSize: 12,
+                                                fontWeight: 600,
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            ⏹ Stop
+                                        </button>
+                                    </div>
+                                )}
+                            </>
+                        )}
                     </div>
                 </div>
 

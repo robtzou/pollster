@@ -1,8 +1,9 @@
-import { app, shell, BrowserWindow, ipcMain } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { startServer } from './server';
+import { getLeaderboard, getSessionHistory } from './database';
 
 let serverUrl = '';
 // ... standard electron setup ...
@@ -38,12 +39,41 @@ function createWindow(): void {
 
 app.whenReady().then(async () => {
   // Start the server first
-  const { ip, port } = await startServer();
+  const { ip, port, setPdfPath, getCurrentSessionId } = await startServer(app.getPath('userData'));
   serverUrl = `http://${ip}:${port}`;
   console.log(`Server running at ${serverUrl}`);
 
   // IPC handler so the renderer can request the server URL
   ipcMain.handle('get-server-url', () => serverUrl);
+
+  // IPC: Open file dialog to select a PDF
+  ipcMain.handle('select-pdf', async () => {
+    const result = await dialog.showOpenDialog({
+      title: 'Select a PDF to present',
+      filters: [{ name: 'PDF Files', extensions: ['pdf'] }],
+      properties: ['openFile']
+    });
+    if (result.canceled || result.filePaths.length === 0) return null;
+    return result.filePaths[0];
+  });
+
+  // IPC: Upload PDF path to the server
+  ipcMain.handle('upload-pdf', (_event, filePath: string) => {
+    setPdfPath(filePath);
+    return true;
+  });
+
+  // IPC: Get leaderboard for the current session
+  ipcMain.handle('get-leaderboard', () => {
+    const sessionId = getCurrentSessionId();
+    if (!sessionId) return [];
+    return getLeaderboard(sessionId);
+  });
+
+  // IPC: Get session history
+  ipcMain.handle('get-session-history', () => {
+    return getSessionHistory();
+  });
 
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.electron')

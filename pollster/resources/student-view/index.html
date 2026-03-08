@@ -24,6 +24,31 @@
             margin-top: 50px;
         }
 
+        /* PDF Viewer */
+        #pdf-ui {
+            display: none;
+        }
+
+        #pdf-canvas-wrap {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-top: 16px;
+        }
+
+        #pdf-canvas {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+        }
+
+        #pdf-page-info {
+            margin-top: 12px;
+            font-size: 14px;
+            opacity: 0.6;
+        }
+
         .btn-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -93,12 +118,55 @@
         #confirm-btn:active {
             opacity: 0.7;
         }
+
+        /* Name prompt */
+        #name-ui {
+            margin-top: 50px;
+        }
+
+        #name-ui input {
+            padding: 14px 20px;
+            font-size: 18px;
+            border: 2px solid #333;
+            border-radius: 12px;
+            background: #222;
+            color: white;
+            width: 80%;
+            max-width: 300px;
+            text-align: center;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        #name-ui input:focus {
+            border-color: #4cd137;
+        }
+
+        #name-submit {
+            display: block;
+            margin: 16px auto 0;
+            padding: 12px 40px;
+            font-size: 18px;
+            font-weight: bold;
+            border: none;
+            border-radius: 12px;
+            background: #4cd137;
+            color: #1a1a1a;
+            cursor: pointer;
+        }
     </style>
 </head>
 
 <body>
 
-    <div id="waiting-ui">
+    <div id="name-ui" style="display:none">
+        <h2>👋 Welcome!</h2>
+        <p>Enter your name to join:</p>
+        <input type="text" id="name-input" placeholder="Your name" maxlength="30" autocomplete="off">
+        <button id="name-submit">Join</button>
+    </div>
+
+    <div id="waiting-ui" style="display:none">
         <h2>👀 Eyes on the board</h2>
         <p>Waiting for teacher to start...</p>
     </div>
@@ -115,9 +183,47 @@
         <p id="sent-msg" style="display:none; color: #4cd137;">Answer Sent!</p>
     </div>
 
+    <div id="pdf-ui">
+        <h2>📄 Presentation</h2>
+        <div id="pdf-canvas-wrap">
+            <canvas id="pdf-canvas"></canvas>
+        </div>
+        <div id="pdf-page-info">Loading...</div>
+    </div>
+
     <script src="/socket.io/socket.io.js"></script>
     <script>
+        // PDF.js loaded lazily — not at startup
+        let pdfjsLib = null;
+
+        async function loadPdfJs() {
+            if (pdfjsLib) return pdfjsLib;
+            pdfjsLib = await import('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs');
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs';
+            return pdfjsLib;
+        }
+
+        // UUID generator with fallback for non-secure contexts (LAN IP access)
+        function generateUUID() {
+            if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+                try { return crypto.randomUUID(); } catch (e) { }
+            }
+            // Fallback UUID v4
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+                var r = Math.random() * 16 | 0;
+                return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+            });
+        }
+
         const socket = io();
+
+        // --- Student Identity ---
+        let studentUuid = localStorage.getItem('pollster-uuid');
+        let studentName = localStorage.getItem('pollster-name');
+
+        const nameUI = document.getElementById('name-ui');
+        const nameInput = document.getElementById('name-input');
+        const nameSubmit = document.getElementById('name-submit');
 
         // UI Elements
         const pollUI = document.getElementById('poll-ui');
@@ -125,61 +231,139 @@
         const questionText = document.getElementById('question-text');
         const sentMsg = document.getElementById('sent-msg');
         const confirmBtn = document.getElementById('confirm-btn');
+        const pdfUI = document.getElementById('pdf-ui');
+        const pdfCanvas = document.getElementById('pdf-canvas');
+        const pdfPageInfo = document.getElementById('pdf-page-info');
+
+        if (!studentUuid || !studentName) {
+            // First visit — show name prompt
+            if (!studentUuid) {
+                studentUuid = generateUUID();
+                localStorage.setItem('pollster-uuid', studentUuid);
+            }
+            nameUI.style.display = 'block';
+        } else {
+            // Returning student — go straight to waiting
+            waitingUI.style.display = 'block';
+            socket.emit('student-register', { uuid: studentUuid, name: studentName });
+        }
+
+        nameSubmit.addEventListener('click', function () {
+            const name = nameInput.value.trim();
+            if (!name) return;
+            studentName = name;
+            localStorage.setItem('pollster-name', name);
+            nameUI.style.display = 'none';
+            waitingUI.style.display = 'block';
+            socket.emit('student-register', { uuid: studentUuid, name: studentName });
+        });
+
+        nameInput.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') nameSubmit.click();
+        });
 
         let selectedAnswer = null;
         let submitted = false;
 
+        // PDF state
+        let pdfDoc = null;
+
+        // --- Helper: show only one UI section ---
+        function showUI(section) {
+            nameUI.style.display = 'none';
+            waitingUI.style.display = section === 'waiting' ? 'block' : 'none';
+            pollUI.style.display = section === 'poll' ? 'block' : 'none';
+            pdfUI.style.display = section === 'pdf' ? 'block' : 'none';
+        }
+
+        // --- Render a PDF page onto the canvas ---
+        async function renderPage(pageNum) {
+            if (!pdfDoc) return;
+            const page = await pdfDoc.getPage(pageNum);
+            const maxWidth = Math.min(window.innerWidth - 40, 800);
+            const unscaledViewport = page.getViewport({ scale: 1 });
+            const scale = maxWidth / unscaledViewport.width;
+            const viewport = page.getViewport({ scale });
+
+            pdfCanvas.width = viewport.width;
+            pdfCanvas.height = viewport.height;
+            const ctx = pdfCanvas.getContext('2d');
+            await page.render({ canvasContext: ctx, viewport }).promise;
+            pdfPageInfo.textContent = 'Page ' + pageNum + ' of ' + pdfDoc.numPages;
+        }
+
+        // --- Socket Events ---
+
         // 1. LISTEN: Teacher starts poll
-        socket.on('start-poll', (text) => {
-            waitingUI.style.display = 'none';
-            pollUI.style.display = 'block';
+        socket.on('start-poll', function (text) {
+            showUI('poll');
             questionText.innerText = text;
             sentMsg.style.display = 'none';
             sentMsg.innerText = 'Answer Sent!';
             confirmBtn.style.display = 'none';
             selectedAnswer = null;
             submitted = false;
-            // Re-enable and deselect all buttons
-            document.querySelectorAll('.btn-grid button').forEach(b => {
+            document.querySelectorAll('.btn-grid button').forEach(function (b) {
                 b.disabled = false;
                 b.classList.remove('selected');
             });
         });
 
         // 2. LISTEN: Teacher stops poll
-        socket.on('stop-poll', () => {
-            waitingUI.style.display = 'block';
-            pollUI.style.display = 'none';
+        socket.on('stop-poll', function () {
+            showUI('waiting');
         });
 
-        // 3. SELECT: Student taps an answer
+        // 3. LISTEN: PDF presentation starts
+        socket.on('pdf-start', async function (data) {
+            showUI('pdf');
+            pdfPageInfo.textContent = 'Loading PDF...';
+            try {
+                const lib = await loadPdfJs();
+                const resp = await fetch('/pdf');
+                const blob = await resp.blob();
+                const arrayBuffer = await blob.arrayBuffer();
+                pdfDoc = await lib.getDocument({ data: arrayBuffer }).promise;
+                await renderPage(1);
+            } catch (e) {
+                pdfPageInfo.textContent = 'Failed to load PDF.';
+                console.error(e);
+            }
+        });
+
+        // 4. LISTEN: Teacher changes page
+        socket.on('pdf-page', async function (data) {
+            if (!pdfDoc) return;
+            await renderPage(data.page);
+        });
+
+        // 5. LISTEN: PDF presentation stops
+        socket.on('pdf-stop', function () {
+            pdfDoc = null;
+            showUI('waiting');
+        });
+
+        // --- Poll answer functions ---
         function selectAnswer(answer, btn) {
             if (submitted) return;
             selectedAnswer = answer;
-            // Highlight only the selected button
-            document.querySelectorAll('.btn-grid button').forEach(b => b.classList.remove('selected'));
+            document.querySelectorAll('.btn-grid button').forEach(function (b) { b.classList.remove('selected'); });
             btn.classList.add('selected');
-            // Show the confirm button
             confirmBtn.style.display = 'block';
         }
 
-        // 4. CONFIRM: Student locks in their answer
         function confirmAnswer() {
             if (!selectedAnswer || submitted) return;
             submitted = true;
-
-            socket.emit('student-answer', selectedAnswer);
-
+            socket.emit('student-answer', { uuid: studentUuid, answer: selectedAnswer });
             navigator.vibrate(50);
             sentMsg.style.display = 'block';
             confirmBtn.style.display = 'none';
-
-            // Disable all buttons
-            document.querySelectorAll('.btn-grid button').forEach(b => b.disabled = true);
+            document.querySelectorAll('.btn-grid button').forEach(function (b) { b.disabled = true; });
         }
 
         // Server rejected duplicate answer
-        socket.on('already-answered', () => {
+        socket.on('already-answered', function () {
             sentMsg.innerText = 'You already answered this question!';
             sentMsg.style.display = 'block';
         });

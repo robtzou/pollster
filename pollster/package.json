@@ -23,17 +23,22 @@
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
+    "@fastify/cors": "^11.2.0",
+    "better-sqlite3": "^12.6.2",
     "electron-updater": "^6.3.9",
     "fastify": "^5.7.4",
     "internal-ip": "^9.0.0",
+    "pdfjs-dist": "^5.4.624",
     "qrcode.react": "^4.2.0",
     "socket.io": "^4.8.3",
-    "socket.io-client": "^4.8.3"
+    "socket.io-client": "^4.8.3",
+    "uuid": "^13.0.0"
   },
   "devDependencies": {
     "@electron-toolkit/eslint-config-prettier": "^3.0.0",
     "@electron-toolkit/eslint-config-ts": "^3.0.0",
     "@electron-toolkit/tsconfig": "^1.0.1",
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.16.5",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",

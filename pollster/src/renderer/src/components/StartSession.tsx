@@ -86,9 +86,10 @@ const QUIZ: QuizQuestion[] = [
 interface StartSessionProps {
     socket: Socket
     serverUrl: string
+    roomCode: string
 }
 
-export default function StartSession({ socket, serverUrl }: StartSessionProps) {
+export default function StartSession({ socket, serverUrl, roomCode }: StartSessionProps) {
     const [results, setResults] = useState({ A: 0, B: 0, C: 0, D: 0 })
     const [status, setStatus] = useState<'idle' | 'active' | 'stopped' | 'finished'>('idle')
     const [playerCount, setPlayerCount] = useState(0)
@@ -145,6 +146,23 @@ export default function StartSession({ socket, serverUrl }: StartSessionProps) {
             correct: QUIZ[0].correct,
             questionCount: QUIZ.length
         })
+    }
+
+    const startQuickPoll = () => {
+        setQuizStarted(false)
+        setQuestionIndex(0)
+        setShowAnswer(false)
+        setStatus('active')
+        setResults({ A: 0, B: 0, C: 0, D: 0 })
+        socket.emit('teacher-start-poll', {
+            question: 'Quick Poll',
+            correct: ''
+        })
+    }
+
+    const stopQuickPoll = () => {
+        setStatus('idle')
+        socket.emit('teacher-stop-poll')
     }
 
     const revealAnswer = () => {
@@ -302,6 +320,23 @@ export default function StartSession({ socket, serverUrl }: StartSessionProps) {
                                 🔍 Reveal Answer
                             </button>
                         )}
+                        {!quizStarted && status === 'active' && (
+                            <button
+                                onClick={stopQuickPoll}
+                                style={{
+                                    background: '#e74c3c',
+                                    border: 'none',
+                                    color: '#fff',
+                                    padding: '6px 16px',
+                                    borderRadius: 6,
+                                    fontSize: 13,
+                                    cursor: 'pointer',
+                                    fontWeight: 600
+                                }}
+                            >
+                                ⏹ Stop Poll
+                            </button>
+                        )}
                         {quizStarted && status === 'stopped' && (
                             <button
                                 onClick={nextQuestion}
@@ -394,9 +429,13 @@ export default function StartSession({ socket, serverUrl }: StartSessionProps) {
                                 >
                                     {currentQ.question}
                                 </h1>
+                            ) : status === 'active' ? (
+                                <h1 style={{ fontSize: 42, fontWeight: 700, margin: 0, lineHeight: 1.3 }}>
+                                    Quick Poll
+                                </h1>
                             ) : (
                                 <h1 style={{ fontSize: 36, fontWeight: 600, margin: 0, opacity: 0.3 }}>
-                                    Waiting for quiz to start…
+                                    Waiting for poll to start…
                                 </h1>
                             )}
                         </div>
@@ -447,17 +486,19 @@ export default function StartSession({ socket, serverUrl }: StartSessionProps) {
                                             {key}
                                         </div>
                                         {/* Answer text */}
-                                        <div
-                                            style={{
-                                                width: 180,
-                                                fontSize: 16,
-                                                fontWeight: 500,
-                                                flexShrink: 0,
-                                                color: isCorrect ? '#2ecc71' : '#fff'
-                                            }}
-                                        >
-                                            {currentQ?.answers[key as 'A' | 'B' | 'C' | 'D'] || ''}
-                                        </div>
+                                        {quizStarted && currentQ && (
+                                            <div
+                                                style={{
+                                                    width: 180,
+                                                    fontSize: 16,
+                                                    fontWeight: 500,
+                                                    flexShrink: 0,
+                                                    color: isCorrect ? '#2ecc71' : '#fff'
+                                                }}
+                                            >
+                                                {currentQ?.answers[key as 'A' | 'B' | 'C' | 'D'] || ''}
+                                            </div>
+                                        )}
                                         {/* Bar */}
                                         <div
                                             style={{
@@ -509,149 +550,248 @@ export default function StartSession({ socket, serverUrl }: StartSessionProps) {
     // --- Normal Dashboard Mode ---
     return (
         <div style={{ padding: 40, fontFamily: 'sans-serif' }}>
-            <h1>Start Session</h1>
-
-            <div style={{ display: 'flex', gap: 40, alignItems: 'flex-start' }}>
-                {/* Left column: Controls & Results */}
-                <div style={{ flex: 1 }}>
-                    <div style={{ marginBottom: 20, display: 'flex', alignItems: 'center', gap: 20 }}>
-                        <span>
-                            Status: <strong>{status}</strong>
-                        </span>
+            {/* ═══ HERO: Room Code + QR ═══ */}
+            <div
+                style={{
+                    display: 'flex',
+                    gap: 32,
+                    alignItems: 'stretch',
+                    marginBottom: 32
+                }}
+            >
+                {/* Room Code */}
+                <div
+                    style={{
+                        flex: 1,
+                        background: 'linear-gradient(135deg, #1e2a4a 0%, #1a2040 100%)',
+                        borderRadius: 16,
+                        padding: '32px 40px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'center',
+                        border: '1px solid rgba(91,141,239,0.2)'
+                    }}
+                >
+                    <div style={{ fontSize: 13, textTransform: 'uppercase', letterSpacing: 2, opacity: 0.5, marginBottom: 8, fontWeight: 600 }}>
+                        Room Code
+                    </div>
+                    <div
+                        style={{
+                            fontSize: 72,
+                            fontWeight: 900,
+                            fontFamily: "'JetBrains Mono', 'SF Mono', 'Fira Code', monospace",
+                            letterSpacing: 12,
+                            color: '#5b8def',
+                            textShadow: '0 0 40px rgba(91,141,239,0.3)'
+                        }}
+                    >
+                        {roomCode || '----'}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 12 }}>
                         <span
                             style={{
-                                background: '#2a3a5c',
+                                background: playerCount > 0 ? 'rgba(46,204,113,0.15)' : 'rgba(255,255,255,0.06)',
+                                color: playerCount > 0 ? '#2ecc71' : '#8892a4',
                                 padding: '4px 12px',
                                 borderRadius: 20,
-                                fontSize: 14,
+                                fontSize: 13,
                                 fontWeight: 600
                             }}
                         >
                             👥 {playerCount} player{playerCount !== 1 ? 's' : ''} connected
                         </span>
-                        {quizStarted && (
-                            <span
-                                style={{
-                                    background: '#5b8def22',
-                                    color: '#5b8def',
-                                    padding: '4px 12px',
-                                    borderRadius: 20,
-                                    fontSize: 14,
-                                    fontWeight: 700
-                                }}
-                            >
-                                Question {questionIndex + 1} / {QUIZ.length}
+                        {serverUrl && (
+                            <span style={{ fontSize: 12, opacity: 0.4, wordBreak: 'break-all' }}>
+                                {serverUrl}
                             </span>
                         )}
                     </div>
+                </div>
 
-                    <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
-                        {!quizStarted && status !== 'finished' && (
-                            <button
-                                onClick={startQuiz}
-                                style={{
-                                    padding: '10px 20px',
-                                    background: '#2ecc71',
-                                    color: 'white',
-                                    border: 'none',
-                                    borderRadius: 4,
-                                    cursor: 'pointer',
-                                    fontWeight: 600
-                                }}
-                            >
-                                ▶ Start Quiz
-                            </button>
-                        )}
-
-                        {quizStarted && status === 'active' && (
-                            <button
-                                onClick={revealAnswer}
-                                style={{
-                                    padding: '10px 20px',
-                                    background: '#e67e22',
-                                    color: 'white',
-                                    border: 'none',
-                                    borderRadius: 4,
-                                    cursor: 'pointer',
-                                    fontWeight: 600
-                                }}
-                            >
-                                🔍 Reveal Answer
-                            </button>
-                        )}
-
-                        {quizStarted && status === 'stopped' && (
-                            <button
-                                onClick={nextQuestion}
-                                style={{
-                                    padding: '10px 20px',
-                                    background: '#3498db',
-                                    color: 'white',
-                                    border: 'none',
-                                    borderRadius: 4,
-                                    cursor: 'pointer',
-                                    fontWeight: 600
-                                }}
-                            >
-                                {questionIndex + 1 < QUIZ.length ? '➡ Next Question' : '🏁 Finish Quiz'}
-                            </button>
-                        )}
-
-                        {status === 'finished' && (
-                            <button
-                                onClick={resetQuiz}
-                                style={{
-                                    padding: '10px 20px',
-                                    background: '#2ecc71',
-                                    color: 'white',
-                                    border: 'none',
-                                    borderRadius: 4,
-                                    cursor: 'pointer',
-                                    fontWeight: 600
-                                }}
-                            >
-                                🔄 Reset Quiz
-                            </button>
-                        )}
-
-                        <button
-                            onClick={() => setFullScreen(true)}
-                            style={{
-                                padding: '10px 20px',
-                                background: 'linear-gradient(135deg, #667eea, #764ba2)',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: 4,
-                                cursor: 'pointer',
-                                fontWeight: 600
-                            }}
-                        >
-                            🖥 Present
-                        </button>
-
-                        {quizStarted && (
-                            <button
-                                onClick={resetQuiz}
-                                style={{
-                                    padding: '10px 20px',
-                                    background: '#e74c3c',
-                                    color: 'white',
-                                    border: 'none',
-                                    borderRadius: 4,
-                                    cursor: 'pointer',
-                                    fontWeight: 600
-                                }}
-                            >
-                                ⏹ Stop Session
-                            </button>
-                        )}
+                {/* QR Code */}
+                {serverUrl && (
+                    <div
+                        style={{
+                            background: '#1e2230',
+                            padding: 24,
+                            borderRadius: 16,
+                            textAlign: 'center',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 10,
+                            border: '1px solid rgba(255,255,255,0.06)'
+                        }}
+                    >
+                        <div style={{ fontSize: 12, fontWeight: 600, opacity: 0.5, textTransform: 'uppercase', letterSpacing: 1 }}>Scan to Join</div>
+                        <div style={{ background: 'white', padding: 12, borderRadius: 10 }}>
+                            <QRCodeSVG value={serverUrl} size={148} />
+                        </div>
                     </div>
+                )}
+            </div>
 
+            {/* ═══ ACTION BUTTONS ═══ */}
+            <div style={{ display: 'flex', gap: 12, marginBottom: 24 }}>
+                {/* Quick Poll Button */}
+                {status === 'idle' && !quizStarted && (
+                    <button
+                        onClick={startQuickPoll}
+                        style={{
+                            padding: '14px 28px',
+                            background: 'linear-gradient(135deg, #e74c3c, #c0392b)',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: 10,
+                            cursor: 'pointer',
+                            fontWeight: 700,
+                            fontSize: 16,
+                            boxShadow: '0 4px 16px rgba(231,76,60,0.3)',
+                            transition: 'transform 0.15s ease, box-shadow 0.15s ease'
+                        }}
+                    >
+                        🚀 Start Quick Poll
+                    </button>
+                )}
+
+                {/* Stop Quick Poll */}
+                {status === 'active' && !quizStarted && (
+                    <button
+                        onClick={stopQuickPoll}
+                        style={{
+                            padding: '14px 28px',
+                            background: '#e74c3c',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: 10,
+                            cursor: 'pointer',
+                            fontWeight: 700,
+                            fontSize: 16
+                        }}
+                    >
+                        ⏹ Stop Quick Poll
+                    </button>
+                )}
+
+                {/* Start Quiz */}
+                {!quizStarted && status !== 'active' && status !== 'finished' && (
+                    <button
+                        onClick={startQuiz}
+                        style={{
+                            padding: '14px 28px',
+                            background: 'linear-gradient(135deg, #2ecc71, #27ae60)',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: 10,
+                            cursor: 'pointer',
+                            fontWeight: 700,
+                            fontSize: 16,
+                            boxShadow: '0 4px 16px rgba(46,204,113,0.3)'
+                        }}
+                    >
+                        ▶ Start Quiz
+                    </button>
+                )}
+
+                {quizStarted && status === 'active' && (
+                    <button
+                        onClick={revealAnswer}
+                        style={{
+                            padding: '14px 28px',
+                            background: '#e67e22',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: 10,
+                            cursor: 'pointer',
+                            fontWeight: 600,
+                            fontSize: 15
+                        }}
+                    >
+                        🔍 Reveal Answer
+                    </button>
+                )}
+
+                {quizStarted && status === 'stopped' && (
+                    <button
+                        onClick={nextQuestion}
+                        style={{
+                            padding: '14px 28px',
+                            background: '#3498db',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: 10,
+                            cursor: 'pointer',
+                            fontWeight: 600,
+                            fontSize: 15
+                        }}
+                    >
+                        {questionIndex + 1 < QUIZ.length ? '➡ Next Question' : '🏁 Finish Quiz'}
+                    </button>
+                )}
+
+                {status === 'finished' && (
+                    <button
+                        onClick={resetQuiz}
+                        style={{
+                            padding: '14px 28px',
+                            background: '#2ecc71',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: 10,
+                            cursor: 'pointer',
+                            fontWeight: 600,
+                            fontSize: 15
+                        }}
+                    >
+                        🔄 Reset Quiz
+                    </button>
+                )}
+
+                <button
+                    onClick={() => setFullScreen(true)}
+                    style={{
+                        padding: '14px 28px',
+                        background: 'linear-gradient(135deg, #667eea, #764ba2)',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: 10,
+                        cursor: 'pointer',
+                        fontWeight: 600,
+                        fontSize: 15,
+                        boxShadow: '0 4px 16px rgba(102,126,234,0.3)'
+                    }}
+                >
+                    🖥 Present
+                </button>
+
+                {quizStarted && (
+                    <button
+                        onClick={resetQuiz}
+                        style={{
+                            padding: '14px 28px',
+                            background: '#e74c3c',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: 10,
+                            cursor: 'pointer',
+                            fontWeight: 600,
+                            fontSize: 15
+                        }}
+                    >
+                        ⏹ Stop Session
+                    </button>
+                )}
+            </div>
+
+            <div style={{ display: 'flex', gap: 40, alignItems: 'flex-start' }}>
+                {/* Left column: Controls & Results */}
+                <div style={{ flex: 1 }}>
                     {/* Current Question Display */}
                     {quizStarted && currentQ && (
                         <div
                             style={{
-                                marginTop: 4,
+                                marginBottom: 24,
                                 padding: '16px 20px',
                                 background: '#2a3a5c',
                                 borderLeft: '4px solid #5b8def',
@@ -705,10 +845,31 @@ export default function StartSession({ socket, serverUrl }: StartSessionProps) {
                         </div>
                     )}
 
+                    {/* Quick Poll active indicator */}
+                    {!quizStarted && status === 'active' && (
+                        <div
+                            style={{
+                                marginBottom: 24,
+                                padding: '16px 20px',
+                                background: 'linear-gradient(135deg, rgba(231,76,60,0.15), rgba(192,57,43,0.1))',
+                                borderLeft: '4px solid #e74c3c',
+                                borderRadius: 8,
+                                fontSize: 18,
+                                fontWeight: 600,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 12
+                            }}
+                        >
+                            <span style={{ fontSize: 10, color: '#e74c3c', animation: 'pulse 1.5s infinite' }}>●</span>
+                            Quick Poll Live — Students are voting now
+                        </div>
+                    )}
+
                     {status === 'finished' && (
                         <div
                             style={{
-                                marginTop: 4,
+                                marginBottom: 24,
                                 padding: '24px',
                                 background: '#1a3a2a',
                                 borderLeft: '4px solid #2ecc71',
@@ -721,20 +882,22 @@ export default function StartSession({ socket, serverUrl }: StartSessionProps) {
                         </div>
                     )}
 
-                    <div style={{ marginTop: 40, display: 'flex', gap: 20 }}>
+                    {/* Live Vote Counters */}
+                    <div style={{ display: 'flex', gap: 16, marginBottom: 32 }}>
                         {Object.keys(results).map((key) => (
                             <div
                                 key={key}
                                 style={{
                                     background: '#252a37ff',
-                                    padding: 20,
-                                    borderRadius: 8,
+                                    padding: '16px 24px',
+                                    borderRadius: 12,
                                     textAlign: 'center',
-                                    width: 60
+                                    flex: 1,
+                                    borderBottom: `3px solid ${BAR_COLORS[key]}`
                                 }}
                             >
-                                <h2>{key}</h2>
-                                <div style={{ fontSize: 40, fontWeight: 'bold' }}>{results[key]}</div>
+                                <div style={{ fontSize: 16, fontWeight: 700, opacity: 0.7, marginBottom: 4 }}>{key}</div>
+                                <div style={{ fontSize: 36, fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>{results[key]}</div>
                             </div>
                         ))}
                     </div>
@@ -742,7 +905,6 @@ export default function StartSession({ socket, serverUrl }: StartSessionProps) {
                     {/* --- Leaderboard Section --- */}
                     <div
                         style={{
-                            marginTop: 40,
                             padding: 24,
                             background: '#1e2230',
                             borderRadius: 12,
@@ -826,7 +988,7 @@ export default function StartSession({ socket, serverUrl }: StartSessionProps) {
                     {/* --- PDF Presentation Section --- */}
                     <div
                         style={{
-                            marginTop: 40,
+                            marginTop: 24,
                             padding: 24,
                             background: '#1e2230',
                             borderRadius: 12,
@@ -985,32 +1147,6 @@ export default function StartSession({ socket, serverUrl }: StartSessionProps) {
                         )}
                     </div>
                 </div>
-
-                {/* Right column: QR Code */}
-                {serverUrl && (
-                    <div
-                        style={{
-                            background: '#1e2230',
-                            padding: 24,
-                            borderRadius: 12,
-                            textAlign: 'center',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            gap: 12
-                        }}
-                    >
-                        <div style={{ fontSize: 14, fontWeight: 600, opacity: 0.7 }}>Scan to join</div>
-                        <div style={{ background: 'white', padding: 12, borderRadius: 8 }}>
-                            <QRCodeSVG value={serverUrl} size={160} />
-                        </div>
-                        <div
-                            style={{ fontSize: 12, opacity: 0.5, wordBreak: 'break-all', maxWidth: 180 }}
-                        >
-                            {serverUrl}
-                        </div>
-                    </div>
-                )}
             </div>
         </div>
     )

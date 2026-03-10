@@ -4,6 +4,7 @@ import { electronAPI } from '@electron-toolkit/preload'
 // Custom APIs for renderer
 const api = {
   getServerUrl: (): Promise<string> => ipcRenderer.invoke('get-server-url'),
+  getRoomCode: (): Promise<string> => ipcRenderer.invoke('get-room-code'),
   selectPdf: (): Promise<string | null> => ipcRenderer.invoke('select-pdf'),
   uploadPdf: (filePath: string): Promise<boolean> => ipcRenderer.invoke('upload-pdf', filePath),
   getLeaderboard: (): Promise<{ uuid: string; name: string; total_answers: number; correct_answers: number }[]> =>

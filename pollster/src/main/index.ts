@@ -39,12 +39,13 @@ function createWindow(): void {
 
 app.whenReady().then(async () => {
   // Start the server first
-  const { ip, port, setPdfPath, getCurrentSessionId } = await startServer(app.getPath('userData'));
+  const { ip, port, roomCode, setPdfPath, getCurrentSessionId } = await startServer(app.getPath('userData'));
   serverUrl = `http://${ip}:${port}`;
   console.log(`Server running at ${serverUrl}`);
 
   // IPC handler so the renderer can request the server URL
   ipcMain.handle('get-server-url', () => serverUrl);
+  ipcMain.handle('get-room-code', () => roomCode);
 
   // IPC: Open file dialog to select a PDF
   ipcMain.handle('select-pdf', async () => {

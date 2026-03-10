@@ -17,15 +17,17 @@ const NAV_ITEMS: { key: Page; label: string; icon: string }[] = [
 function App() {
   const [currentPage, setCurrentPage] = useState<Page>('session')
   const [serverUrl, setServerUrl] = useState<string>('')
+  const [roomCode, setRoomCode] = useState<string>('')
 
   useEffect(() => {
     window.api.getServerUrl().then((url) => setServerUrl(url))
+    window.api.getRoomCode().then((code) => setRoomCode(code))
   }, [])
 
   const renderPage = () => {
     switch (currentPage) {
       case 'session':
-        return <StartSession socket={socket} serverUrl={serverUrl} />
+        return <StartSession socket={socket} serverUrl={serverUrl} roomCode={roomCode} />
       case 'create':
         return <Create />
       case 'settings':

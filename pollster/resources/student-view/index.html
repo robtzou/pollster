@@ -3,188 +3,399 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Student Remote</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Pollster — Join</title>
     <style>
-        body {
-            font-family: sans-serif;
-            text-align: center;
-            padding: 20px;
-            background: #1a1a1a;
-            color: white;
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
         }
 
-        /* Hidden by default */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f1117;
+            color: #fff;
+            min-height: 100dvh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            touch-action: manipulation;
+        }
+
+        /* ─── JOIN SCREEN ─── */
+        #join-ui {
+            display: none;
+            flex: 1;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 32px 24px;
+            gap: 32px;
+        }
+
+        #join-ui h1 {
+            font-size: 28px;
+            font-weight: 800;
+            text-align: center;
+        }
+
+        #join-ui .brand {
+            font-size: 14px;
+            opacity: 0.4;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            font-weight: 600;
+        }
+
+        #code-input-wrap {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+        }
+
+        .code-char {
+            width: 64px;
+            height: 80px;
+            background: #1a1d28;
+            border: 2px solid #2a2d3a;
+            border-radius: 14px;
+            color: #fff;
+            font-size: 36px;
+            font-weight: 800;
+            text-align: center;
+            text-transform: uppercase;
+            outline: none;
+            caret-color: #5b8def;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .code-char:focus {
+            border-color: #5b8def;
+            box-shadow: 0 0 20px rgba(91, 141, 239, 0.25);
+        }
+
+        #join-btn {
+            width: 100%;
+            max-width: 290px;
+            padding: 18px;
+            font-size: 20px;
+            font-weight: 700;
+            border: none;
+            border-radius: 14px;
+            background: linear-gradient(135deg, #5b8def, #667eea);
+            color: #fff;
+            cursor: pointer;
+            touch-action: manipulation;
+            transition: opacity 0.15s, transform 0.15s;
+        }
+
+        #join-btn:active {
+            transform: scale(0.97);
+            opacity: 0.85;
+        }
+
+        #join-btn:disabled {
+            opacity: 0.4;
+            cursor: default;
+            transform: none;
+        }
+
+        #join-error {
+            color: #e74c3c;
+            font-size: 14px;
+            font-weight: 600;
+            min-height: 20px;
+            text-align: center;
+        }
+
+        /* ─── NAME SCREEN ─── */
+        #name-ui {
+            display: none;
+            flex: 1;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 32px 24px;
+            gap: 24px;
+        }
+
+        #name-ui h2 {
+            font-size: 32px;
+            font-weight: 800;
+        }
+
+        #name-ui p {
+            font-size: 16px;
+            opacity: 0.5;
+        }
+
+        #name-input {
+            width: 100%;
+            max-width: 320px;
+            padding: 18px 24px;
+            font-size: 20px;
+            border: 2px solid #2a2d3a;
+            border-radius: 14px;
+            background: #1a1d28;
+            color: #fff;
+            text-align: center;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        #name-input:focus {
+            border-color: #2ecc71;
+        }
+
+        #name-submit {
+            width: 100%;
+            max-width: 320px;
+            padding: 18px;
+            font-size: 20px;
+            font-weight: 700;
+            border: none;
+            border-radius: 14px;
+            background: #2ecc71;
+            color: #0f1117;
+            cursor: pointer;
+            touch-action: manipulation;
+            transition: opacity 0.15s, transform 0.15s;
+        }
+
+        #name-submit:active {
+            transform: scale(0.97);
+            opacity: 0.85;
+        }
+
+        /* ─── WAITING SCREEN ─── */
+        #waiting-ui {
+            display: none;
+            flex: 1;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 32px 24px;
+            gap: 16px;
+        }
+
+        #waiting-ui .pulse-dot {
+            width: 16px;
+            height: 16px;
+            background: #5b8def;
+            border-radius: 50%;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        #waiting-ui h2 {
+            font-size: 24px;
+            font-weight: 700;
+        }
+
+        #waiting-ui p {
+            font-size: 16px;
+            opacity: 0.4;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(0.8); }
+        }
+
+        /* ─── POLL SCREEN ─── */
         #poll-ui {
             display: none;
+            flex: 1;
+            flex-direction: column;
+            padding: 24px 16px;
         }
 
-        #waiting-ui {
-            display: block;
-            margin-top: 50px;
+        #question-text {
+            font-size: 20px;
+            font-weight: 700;
+            text-align: center;
+            padding: 16px;
+            margin-bottom: 16px;
+            background: rgba(255,255,255,0.04);
+            border-radius: 14px;
         }
 
-        /* PDF Viewer */
+        .btn-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            flex: 1;
+        }
+
+        .btn-grid button {
+            padding: 0;
+            font-size: 32px;
+            font-weight: 800;
+            border: 3px solid transparent;
+            border-radius: 16px;
+            color: white;
+            cursor: pointer;
+            touch-action: manipulation;
+            transition: transform 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease, opacity 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 120px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-grid button::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: rgba(255,255,255,0);
+            transition: background 0.2s;
+        }
+
+        .btn-grid button.selected {
+            transform: scale(1.04);
+            border-color: #fff;
+            box-shadow: 0 0 24px rgba(255, 255, 255, 0.25);
+        }
+
+        .btn-grid button.sent {
+            opacity: 0.6;
+        }
+
+        .btn-grid button:disabled {
+            opacity: 0.35;
+            cursor: default;
+            transform: none;
+        }
+
+        .btn-grid button:active:not(:disabled) {
+            transform: scale(0.96);
+        }
+
+        .btn-a { background: linear-gradient(135deg, #e74c3c, #c0392b); }
+        .btn-b { background: linear-gradient(135deg, #3498db, #2980b9); }
+        .btn-c { background: linear-gradient(135deg, #f39c12, #d68910); color: #fff; }
+        .btn-d { background: linear-gradient(135deg, #2ecc71, #27ae60); }
+
+        #sent-msg {
+            display: none;
+            text-align: center;
+            padding: 16px;
+            font-size: 18px;
+            font-weight: 700;
+            color: #2ecc71;
+            margin-top: 12px;
+            background: rgba(46,204,113,0.1);
+            border-radius: 12px;
+        }
+
+        /* ─── PDF SCREEN ─── */
         #pdf-ui {
             display: none;
+            flex: 1;
+            flex-direction: column;
         }
 
         #pdf-canvas-wrap {
+            flex: 1;
             display: flex;
             justify-content: center;
             align-items: center;
-            margin-top: 16px;
+            padding: 12px;
         }
 
         #pdf-canvas {
             max-width: 100%;
             height: auto;
             border-radius: 8px;
-            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
         }
 
         #pdf-page-info {
-            margin-top: 12px;
-            font-size: 14px;
-            opacity: 0.6;
-        }
-
-        .btn-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            margin-top: 20px;
-        }
-
-        .btn-grid button {
-            padding: 40px;
-            font-size: 24px;
-            border: 3px solid transparent;
-            border-radius: 12px;
-            font-weight: bold;
-            color: white;
-            cursor: pointer;
-            transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
-        }
-
-        .btn-grid button.selected {
-            transform: scale(1.05);
-            border-color: white;
-            box-shadow: 0 0 16px rgba(255, 255, 255, 0.3);
-        }
-
-        .btn-grid button:disabled {
-            opacity: 0.5;
-            cursor: default;
-            transform: none;
-        }
-
-        .btn-a {
-            background: #e63946;
-        }
-
-        .btn-b {
-            background: #457b9d;
-        }
-
-        .btn-c {
-            background: #e9c46a;
-            color: black;
-        }
-
-        .btn-d {
-            background: #2a9d8f;
-        }
-
-        .btn-grid button:active:not(:disabled) {
-            opacity: 0.7;
-            transform: scale(0.98);
-        }
-
-        #confirm-btn {
-            display: none;
-            margin: 20px auto 0;
-            padding: 16px 48px;
-            font-size: 20px;
-            font-weight: bold;
-            border: none;
-            border-radius: 12px;
-            background: #4cd137;
-            color: #1a1a1a;
-            cursor: pointer;
-            transition: opacity 0.15s ease;
-        }
-
-        #confirm-btn:active {
-            opacity: 0.7;
-        }
-
-        /* Name prompt */
-        #name-ui {
-            margin-top: 50px;
-        }
-
-        #name-ui input {
-            padding: 14px 20px;
-            font-size: 18px;
-            border: 2px solid #333;
-            border-radius: 12px;
-            background: #222;
-            color: white;
-            width: 80%;
-            max-width: 300px;
             text-align: center;
-            outline: none;
-            transition: border-color 0.2s;
+            padding: 12px;
+            font-size: 13px;
+            opacity: 0.5;
         }
 
-        #name-ui input:focus {
-            border-color: #4cd137;
+        /* ─── CONNECTING SCREEN ─── */
+        #connecting-ui {
+            display: none;
+            flex: 1;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            padding: 32px 24px;
         }
 
-        #name-submit {
-            display: block;
-            margin: 16px auto 0;
-            padding: 12px 40px;
-            font-size: 18px;
-            font-weight: bold;
-            border: none;
-            border-radius: 12px;
-            background: #4cd137;
-            color: #1a1a1a;
-            cursor: pointer;
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(255,255,255,0.1);
+            border-top-color: #5b8def;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
         }
     </style>
 </head>
 
 <body>
 
-    <div id="name-ui" style="display:none">
+    <!-- 1. JOIN SCREEN: Enter room code -->
+    <div id="join-ui">
+        <div class="brand">Pollster</div>
+        <h1>Enter Room Code</h1>
+        <div id="code-input-wrap">
+            <input class="code-char" type="text" maxlength="1" inputmode="text" autocomplete="off" autocapitalize="characters" data-idx="0">
+            <input class="code-char" type="text" maxlength="1" inputmode="text" autocomplete="off" autocapitalize="characters" data-idx="1">
+            <input class="code-char" type="text" maxlength="1" inputmode="text" autocomplete="off" autocapitalize="characters" data-idx="2">
+            <input class="code-char" type="text" maxlength="1" inputmode="text" autocomplete="off" autocapitalize="characters" data-idx="3">
+        </div>
+        <div id="join-error"></div>
+        <button id="join-btn" disabled>Join</button>
+    </div>
+
+    <!-- 2. CONNECTING SCREEN -->
+    <div id="connecting-ui">
+        <div class="spinner"></div>
+        <p style="opacity: 0.5;">Connecting...</p>
+    </div>
+
+    <!-- 3. NAME SCREEN -->
+    <div id="name-ui">
         <h2>👋 Welcome!</h2>
-        <p>Enter your name to join:</p>
+        <p>Enter your name to join</p>
         <input type="text" id="name-input" placeholder="Your name" maxlength="30" autocomplete="off">
         <button id="name-submit">Join</button>
     </div>
 
-    <div id="waiting-ui" style="display:none">
-        <h2>👀 Eyes on the board</h2>
+    <!-- 4. WAITING SCREEN -->
+    <div id="waiting-ui">
+        <div class="pulse-dot"></div>
+        <h2>You're in!</h2>
         <p>Waiting for teacher to start...</p>
     </div>
 
+    <!-- 5. POLL SCREEN -->
     <div id="poll-ui">
         <h2 id="question-text">Question?</h2>
         <div class="btn-grid">
-            <button class="btn-a" onclick="selectAnswer('A', this)">A</button>
-            <button class="btn-b" onclick="selectAnswer('B', this)">B</button>
-            <button class="btn-c" onclick="selectAnswer('C', this)">C</button>
-            <button class="btn-d" onclick="selectAnswer('D', this)">D</button>
+            <button class="btn-a" onclick="selectAndSend('A', this)">A</button>
+            <button class="btn-b" onclick="selectAndSend('B', this)">B</button>
+            <button class="btn-c" onclick="selectAndSend('C', this)">C</button>
+            <button class="btn-d" onclick="selectAndSend('D', this)">D</button>
         </div>
-        <button id="confirm-btn" onclick="confirmAnswer()">✓ Confirm Answer</button>
-        <p id="sent-msg" style="display:none; color: #4cd137;">Answer Sent!</p>
+        <div id="sent-msg">✓ Answer Sent!</div>
     </div>
 
+    <!-- 6. PDF SCREEN -->
     <div id="pdf-ui">
-        <h2>📄 Presentation</h2>
         <div id="pdf-canvas-wrap">
             <canvas id="pdf-canvas"></canvas>
         </div>
@@ -193,9 +404,8 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
-        // PDF.js loaded lazily — not at startup
+        // ═══ PDF.js lazy loading ═══
         let pdfjsLib = null;
-
         async function loadPdfJs() {
             if (pdfjsLib) return pdfjsLib;
             pdfjsLib = await import('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs');
@@ -203,84 +413,340 @@
             return pdfjsLib;
         }
 
-        // UUID generator with fallback for non-secure contexts (LAN IP access)
+        // ═══ UUID generator with non-HTTPS fallback ═══
         function generateUUID() {
             if (typeof crypto !== 'undefined' && crypto.randomUUID) {
                 try { return crypto.randomUUID(); } catch (e) { }
             }
-            // Fallback UUID v4
             return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
                 var r = Math.random() * 16 | 0;
                 return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
             });
         }
 
-        const socket = io();
-
-        // --- Student Identity ---
-        let studentUuid = localStorage.getItem('pollster-uuid');
-        let studentName = localStorage.getItem('pollster-name');
-
+        // ═══ DOM References ═══
+        const joinUI = document.getElementById('join-ui');
+        const connectingUI = document.getElementById('connecting-ui');
         const nameUI = document.getElementById('name-ui');
-        const nameInput = document.getElementById('name-input');
-        const nameSubmit = document.getElementById('name-submit');
-
-        // UI Elements
-        const pollUI = document.getElementById('poll-ui');
         const waitingUI = document.getElementById('waiting-ui');
+        const pollUI = document.getElementById('poll-ui');
+        const pdfUI = document.getElementById('pdf-ui');
         const questionText = document.getElementById('question-text');
         const sentMsg = document.getElementById('sent-msg');
-        const confirmBtn = document.getElementById('confirm-btn');
-        const pdfUI = document.getElementById('pdf-ui');
+        const nameInput = document.getElementById('name-input');
+        const nameSubmitBtn = document.getElementById('name-submit');
+        const joinBtn = document.getElementById('join-btn');
+        const joinError = document.getElementById('join-error');
+        const codeInputs = document.querySelectorAll('.code-char');
         const pdfCanvas = document.getElementById('pdf-canvas');
         const pdfPageInfo = document.getElementById('pdf-page-info');
 
-        if (!studentUuid || !studentName) {
-            // First visit — show name prompt
+        // ═══ State ═══
+        let socket = null;
+        let studentUuid = localStorage.getItem('pollster-uuid');
+        let studentName = localStorage.getItem('pollster-name');
+        let selectedAnswer = null;
+        let submitted = false;
+        let pdfDoc = null;
+        let enteredCode = '';
+        let serverBaseUrl = '';
+        let isCloudConnection = false;
+
+        // ═══ Cloud Relay URL (set to your deployed Cloud Run relay) ═══
+        const CLOUD_RELAY_URL = ''; // e.g. 'https://pollster-relay-xyz.a.run.app'
+
+        // ═══ UI Helpers ═══
+        function showUI(section) {
+            joinUI.style.display = section === 'join' ? 'flex' : 'none';
+            connectingUI.style.display = section === 'connecting' ? 'flex' : 'none';
+            nameUI.style.display = section === 'name' ? 'flex' : 'none';
+            waitingUI.style.display = section === 'waiting' ? 'flex' : 'none';
+            pollUI.style.display = section === 'poll' ? 'flex' : 'none';
+            pdfUI.style.display = section === 'pdf' ? 'flex' : 'none';
+        }
+
+        // ═══ Check if we're directly on the server (QR scan / direct URL) ═══
+        function isDirectConnection() {
+            // If we can reach /api/room-info, we're on the local server
+            return window.location.port === '3000' || window.location.pathname === '/';
+        }
+
+        // ═══ STEP 1: Room Code Entry ═══
+        // Auto-focus management for the 4-char input
+        codeInputs.forEach((input, idx) => {
+            input.addEventListener('input', function () {
+                this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+                if (this.value && idx < 3) {
+                    codeInputs[idx + 1].focus();
+                }
+                updateJoinButton();
+            });
+            input.addEventListener('keydown', function (e) {
+                if (e.key === 'Backspace' && !this.value && idx > 0) {
+                    codeInputs[idx - 1].focus();
+                }
+                if (e.key === 'Enter') {
+                    joinBtn.click();
+                }
+            });
+            // Handle paste
+            input.addEventListener('paste', function (e) {
+                e.preventDefault();
+                const pasted = (e.clipboardData.getData('text') || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+                for (let i = 0; i < 4 && i < pasted.length; i++) {
+                    codeInputs[i].value = pasted[i];
+                }
+                const focusIdx = Math.min(pasted.length, 3);
+                codeInputs[focusIdx].focus();
+                updateJoinButton();
+            });
+        });
+
+        function updateJoinButton() {
+            const code = Array.from(codeInputs).map(i => i.value).join('');
+            joinBtn.disabled = code.length < 4;
+        }
+
+        joinBtn.addEventListener('click', async function () {
+            enteredCode = Array.from(codeInputs).map(i => i.value).join('').toUpperCase();
+            if (enteredCode.length !== 4) return;
+
+            joinError.textContent = '';
+            joinBtn.disabled = true;
+            joinBtn.textContent = 'Joining...';
+
+            try {
+                // Validate the room code against the server
+                const resp = await fetch('/api/room-info');
+                const info = await resp.json();
+
+                if (info.roomCode !== enteredCode) {
+                    joinError.textContent = 'Invalid room code. Try again.';
+                    joinBtn.disabled = false;
+                    joinBtn.textContent = 'Join';
+                    return;
+                }
+
+                serverBaseUrl = window.location.origin;
+                connectToServer();
+            } catch (err) {
+                joinError.textContent = 'Could not reach server. Check your connection.';
+                joinBtn.disabled = false;
+                joinBtn.textContent = 'Join';
+            }
+        });
+
+        // ═══ STEP 2: Connect via Hybrid Race ═══
+        function connectToServer() {
+            showUI('connecting');
+
+            const localUrl = serverBaseUrl || window.location.origin;
+
+            // If no cloud relay configured, just connect locally
+            if (!CLOUD_RELAY_URL) {
+                socket = io(localUrl);
+                isCloudConnection = false;
+                setupSocketListeners();
+                onConnected();
+                return;
+            }
+
+            // Hybrid Race: attempt both local and cloud relay simultaneously
+            let resolved = false;
+            const localSocket = io(localUrl, { timeout: 500, reconnection: false });
+            const cloudSocket = io(CLOUD_RELAY_URL, { timeout: 3000, reconnection: false });
+
+            function pickWinner(winner, loser) {
+                if (resolved) return;
+                resolved = true;
+                socket = winner;
+                loser.disconnect();
+                setupSocketListeners();
+                onConnected();
+            }
+
+            localSocket.on('connect', () => {
+                isCloudConnection = false;
+                pickWinner(localSocket, cloudSocket);
+            });
+            cloudSocket.on('connect', () => {
+                // Cloud needs room scoping
+                isCloudConnection = true;
+                cloudSocket.emit('join-room', enteredCode);
+                pickWinner(cloudSocket, localSocket);
+            });
+
+            // If local fails fast, wait for cloud
+            localSocket.on('connect_error', () => {
+                // Local failed, if cloud hasn't connected yet just wait
+            });
+
+            // Timeout: if neither connects in 5s, show error
+            setTimeout(() => {
+                if (!resolved) {
+                    localSocket.disconnect();
+                    cloudSocket.disconnect();
+                    showUI('join');
+                    joinError.textContent = 'Connection failed. Please try again.';
+                    joinBtn.disabled = false;
+                    joinBtn.textContent = 'Join';
+                }
+            }, 5000);
+        }
+
+        // ═══ STEP 3: After connection, handle identity ═══
+        function onConnected() {
             if (!studentUuid) {
                 studentUuid = generateUUID();
                 localStorage.setItem('pollster-uuid', studentUuid);
             }
-            nameUI.style.display = 'block';
-        } else {
-            // Returning student — go straight to waiting
-            waitingUI.style.display = 'block';
-            socket.emit('student-register', { uuid: studentUuid, name: studentName });
+
+            if (!studentName) {
+                // First visit: show name prompt
+                showUI('name');
+            } else {
+                // Return visit: go straight to waiting
+                emitToTeacher('student-register', { uuid: studentUuid, name: studentName });
+                showUI('waiting');
+            }
         }
 
-        nameSubmit.addEventListener('click', function () {
+        // ═══ NAME SUBMISSION ═══
+        nameSubmitBtn.addEventListener('click', function () {
             const name = nameInput.value.trim();
             if (!name) return;
             studentName = name;
             localStorage.setItem('pollster-name', name);
-            nameUI.style.display = 'none';
-            waitingUI.style.display = 'block';
-            socket.emit('student-register', { uuid: studentUuid, name: studentName });
+            emitToTeacher('student-register', { uuid: studentUuid, name: studentName });
+            showUI('waiting');
         });
 
         nameInput.addEventListener('keydown', function (e) {
-            if (e.key === 'Enter') nameSubmit.click();
+            if (e.key === 'Enter') nameSubmitBtn.click();
         });
 
-        let selectedAnswer = null;
-        let submitted = false;
-
-        // PDF state
-        let pdfDoc = null;
-
-        // --- Helper: show only one UI section ---
-        function showUI(section) {
-            nameUI.style.display = 'none';
-            waitingUI.style.display = section === 'waiting' ? 'block' : 'none';
-            pollUI.style.display = section === 'poll' ? 'block' : 'none';
-            pdfUI.style.display = section === 'pdf' ? 'block' : 'none';
+        // ═══ HELPER: Send events to teacher (local or cloud relay) ═══
+        function emitToTeacher(eventType, data) {
+            if (isCloudConnection) {
+                // Cloud relay protocol: wrap in student-to-teacher with roomId
+                socket.emit('student-to-teacher', {
+                    roomId: enteredCode,
+                    payload: { type: eventType, ...data }
+                });
+            } else {
+                // Direct local connection: emit event directly
+                socket.emit(eventType, data);
+            }
         }
 
-        // --- Render a PDF page onto the canvas ---
-        async function renderPage(pageNum) {
+        // ═══ HANDLER: Process incoming events (works for both local and relay) ═══
+        function handleTeacherEvent(type, data) {
+            switch (type) {
+                case 'start-poll':
+                    showUI('poll');
+                    questionText.innerText = data.question || data;
+                    sentMsg.style.display = 'none';
+                    selectedAnswer = null;
+                    submitted = false;
+                    document.querySelectorAll('.btn-grid button').forEach(function (b) {
+                        b.disabled = false;
+                        b.classList.remove('selected', 'sent');
+                    });
+                    break;
+                case 'stop-poll':
+                    showUI('waiting');
+                    break;
+                case 'pdf-start':
+                    (async function () {
+                        showUI('pdf');
+                        pdfPageInfo.textContent = 'Loading PDF...';
+                        try {
+                            const lib = await loadPdfJs();
+                            const resp = await fetch('/pdf');
+                            const blob = await resp.blob();
+                            const arrayBuffer = await blob.arrayBuffer();
+                            pdfDoc = await lib.getDocument({ data: arrayBuffer }).promise;
+                            await renderPdfPage(1);
+                        } catch (e) {
+                            pdfPageInfo.textContent = 'Failed to load PDF.';
+                            console.error(e);
+                        }
+                    })();
+                    break;
+                case 'pdf-page':
+                    if (pdfDoc && data && data.page) renderPdfPage(data.page);
+                    break;
+                case 'pdf-stop':
+                    pdfDoc = null;
+                    showUI('waiting');
+                    break;
+                case 'update-results':
+                    // Teacher sent updated results — no action needed on student side
+                    break;
+            }
+        }
+
+        // ═══ SOCKET EVENT LISTENERS ═══
+        function setupSocketListeners() {
+            // Direct local events
+            socket.on('start-poll', function (text) {
+                handleTeacherEvent('start-poll', text);
+            });
+            socket.on('stop-poll', function () {
+                handleTeacherEvent('stop-poll');
+            });
+            socket.on('already-answered', function () {
+                sentMsg.innerText = 'You already answered this question!';
+                sentMsg.style.display = 'block';
+            });
+            socket.on('pdf-start', async function (data) {
+                handleTeacherEvent('pdf-start', data);
+            });
+            socket.on('pdf-page', async function (data) {
+                handleTeacherEvent('pdf-page', data);
+            });
+            socket.on('pdf-stop', function () {
+                handleTeacherEvent('pdf-stop');
+            });
+
+            // Cloud relay events (teacher → students via relay)
+            socket.on('relay-to-students', function (payload) {
+                if (payload && payload.type) {
+                    handleTeacherEvent(payload.type, payload);
+                }
+            });
+        }
+
+        // ═══ POLL ANSWER — Instant feedback, single tap ═══
+        function selectAndSend(answer, btn) {
+            if (submitted) return;
+            submitted = true;
+            selectedAnswer = answer;
+
+            // Visual feedback: highlight selected
+            document.querySelectorAll('.btn-grid button').forEach(function (b) {
+                b.classList.remove('selected');
+                b.classList.add('sent');
+                b.disabled = true;
+            });
+            btn.classList.add('selected');
+            btn.classList.remove('sent');
+
+            // Haptic feedback
+            if (navigator.vibrate) navigator.vibrate(50);
+
+            // Send immediately (local or via relay)
+            emitToTeacher('student-answer', { uuid: studentUuid, answer: selectedAnswer });
+
+            // Show confirmation
+            sentMsg.style.display = 'block';
+        }
+
+        // ═══ PDF Rendering ═══
+        async function renderPdfPage(pageNum) {
             if (!pdfDoc) return;
             const page = await pdfDoc.getPage(pageNum);
-            const maxWidth = Math.min(window.innerWidth - 40, 800);
+            const maxWidth = Math.min(window.innerWidth - 24, 800);
             const unscaledViewport = page.getViewport({ scale: 1 });
             const scale = maxWidth / unscaledViewport.width;
             const viewport = page.getViewport({ scale });
@@ -292,81 +758,27 @@
             pdfPageInfo.textContent = 'Page ' + pageNum + ' of ' + pdfDoc.numPages;
         }
 
-        // --- Socket Events ---
-
-        // 1. LISTEN: Teacher starts poll
-        socket.on('start-poll', function (text) {
-            showUI('poll');
-            questionText.innerText = text;
-            sentMsg.style.display = 'none';
-            sentMsg.innerText = 'Answer Sent!';
-            confirmBtn.style.display = 'none';
-            selectedAnswer = null;
-            submitted = false;
-            document.querySelectorAll('.btn-grid button').forEach(function (b) {
-                b.disabled = false;
-                b.classList.remove('selected');
-            });
-        });
-
-        // 2. LISTEN: Teacher stops poll
-        socket.on('stop-poll', function () {
-            showUI('waiting');
-        });
-
-        // 3. LISTEN: PDF presentation starts
-        socket.on('pdf-start', async function (data) {
-            showUI('pdf');
-            pdfPageInfo.textContent = 'Loading PDF...';
+        // ═══ STARTUP: Decide initial screen ═══
+        (async function init() {
+            // If accessed via QR scan (direct server URL), try auto-validating
             try {
-                const lib = await loadPdfJs();
-                const resp = await fetch('/pdf');
-                const blob = await resp.blob();
-                const arrayBuffer = await blob.arrayBuffer();
-                pdfDoc = await lib.getDocument({ data: arrayBuffer }).promise;
-                await renderPage(1);
+                const resp = await fetch('/api/room-info');
+                const info = await resp.json();
+                if (info.roomCode) {
+                    // We're on the server — auto-connect
+                    enteredCode = info.roomCode;
+                    serverBaseUrl = window.location.origin;
+                    connectToServer();
+                    return;
+                }
             } catch (e) {
-                pdfPageInfo.textContent = 'Failed to load PDF.';
-                console.error(e);
+                // Not on the server, show join screen
             }
-        });
 
-        // 4. LISTEN: Teacher changes page
-        socket.on('pdf-page', async function (data) {
-            if (!pdfDoc) return;
-            await renderPage(data.page);
-        });
-
-        // 5. LISTEN: PDF presentation stops
-        socket.on('pdf-stop', function () {
-            pdfDoc = null;
-            showUI('waiting');
-        });
-
-        // --- Poll answer functions ---
-        function selectAnswer(answer, btn) {
-            if (submitted) return;
-            selectedAnswer = answer;
-            document.querySelectorAll('.btn-grid button').forEach(function (b) { b.classList.remove('selected'); });
-            btn.classList.add('selected');
-            confirmBtn.style.display = 'block';
-        }
-
-        function confirmAnswer() {
-            if (!selectedAnswer || submitted) return;
-            submitted = true;
-            socket.emit('student-answer', { uuid: studentUuid, answer: selectedAnswer });
-            navigator.vibrate(50);
-            sentMsg.style.display = 'block';
-            confirmBtn.style.display = 'none';
-            document.querySelectorAll('.btn-grid button').forEach(function (b) { b.disabled = true; });
-        }
-
-        // Server rejected duplicate answer
-        socket.on('already-answered', function () {
-            sentMsg.innerText = 'You already answered this question!';
-            sentMsg.style.display = 'block';
-        });
+            // Show join screen for manual code entry
+            showUI('join');
+            codeInputs[0].focus();
+        })();
     </script>
 </body>
 

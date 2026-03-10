@@ -1,11 +1,25 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import { Server } from 'socket.io';
+import { io as ioClient, Socket as ClientSocket } from 'socket.io-client';
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
 import { app as electronApp } from 'electron';
 import { initDatabase, upsertStudent, createSession, insertResponse } from './database';
+
+// ═══ CLOUD RELAY CONFIG ═══
+// Set this to your deployed Cloud Run URL (e.g. 'https://pollster-relay-xyz.a.run.app')
+// Leave empty to disable cloud relay bridging
+const CLOUD_RELAY_URL = '';
+
+// Generate a 4-char alphanumeric room code (no confusable chars)
+function generateRoomCode(): string {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let code = '';
+    for (let i = 0; i < 4; i++) code += chars[Math.floor(Math.random() * chars.length)];
+    return code;
+}
 
 // HELPER: Find the resources folder in both Dev and Prod
 const getResourcesPath = () => {
@@ -31,6 +45,9 @@ function getLocalIp(): string {
 export async function startServer(userDataPath: string) {
     // Initialize the database
     initDatabase(userDataPath);
+
+    // Generate room code for this session
+    const roomCode = generateRoomCode();
 
     const app = Fastify();
     // Enable CORS for all HTTP routes (needed for Vite dev server)
@@ -61,6 +78,11 @@ export async function startServer(userDataPath: string) {
         const studentHtml = path.join(getResourcesPath(), 'student-view', 'index.html');
         const stream = fs.createReadStream(studentHtml);
         reply.type('text/html').send(stream);
+    });
+
+    // Room info endpoint for student code validation
+    app.get('/api/room-info', (_req, reply) => {
+        reply.send({ roomCode });
     });
 
     // 2. Serve the current PDF file
@@ -216,6 +238,97 @@ export async function startServer(userDataPath: string) {
     const PORT = 3000;
     await app.listen({ port: PORT, host: '0.0.0.0' });
     const ip = getLocalIp();
-    return { port: PORT, ip, setPdfPath, getCurrentSessionId: () => currentSessionId };
+
+    // ═══ CLOUD RELAY BRIDGE ═══
+    // Connect to the cloud relay so students on external networks can reach us
+    let relaySocket: ClientSocket | null = null;
+    if (CLOUD_RELAY_URL) {
+        relaySocket = ioClient(CLOUD_RELAY_URL, {
+            transports: ['websocket'],
+            reconnection: true,
+            reconnectionDelay: 2000
+        });
+
+        relaySocket.on('connect', () => {
+            console.log('☁️ Connected to Cloud Relay:', CLOUD_RELAY_URL);
+            relaySocket!.emit('host-room', roomCode);
+        });
+
+        relaySocket.on('connect_error', (err) => {
+            console.warn('☁️ Cloud Relay connection error:', err.message);
+        });
+
+        // Bridge inbound: relay → local server handlers
+        // Student answers arriving via cloud relay
+        relaySocket.on('relay-to-teacher', (payload: Record<string, unknown>) => {
+            const type = payload.type as string;
+
+            if (type === 'student-answer') {
+                const data = payload as { type: string; uuid: string; answer: string };
+                if (!currentPoll.active) return;
+                if (!data.uuid || !data.answer) return;
+                if (votedStudents.has(data.uuid)) return;
+
+                if (currentPoll.results[data.answer] !== undefined) {
+                    votedStudents.add(data.uuid);
+                    currentPoll.results[data.answer]++;
+
+                    if (currentSessionId) {
+                        insertResponse(
+                            currentSessionId,
+                            data.uuid,
+                            currentPoll.question,
+                            data.answer,
+                            currentPoll.correctAnswer
+                        );
+                    }
+
+                    // Update all local + relay students
+                    io.emit('update-results', currentPoll.results);
+                    relaySocket!.emit('teacher-to-students', {
+                        roomId: roomCode,
+                        payload: { type: 'update-results', results: currentPoll.results }
+                    });
+                }
+            } else if (type === 'student-register') {
+                const data = payload as { type: string; uuid: string; name: string };
+                if (data.uuid && data.name) {
+                    upsertStudent(data.uuid, data.name);
+                    console.log('☁️ Cloud student registered:', data.name, data.uuid.slice(0, 8));
+                }
+            }
+        });
+    }
+
+    // Helper to bridge teacher events to relay
+    const emitToRelay = (eventType: string, eventData?: Record<string, unknown>) => {
+        if (!relaySocket?.connected) return;
+        relaySocket.emit('teacher-to-students', {
+            roomId: roomCode,
+            payload: { type: eventType, ...eventData }
+        });
+    };
+
+    // ═══ Hook teacher events to also broadcast to relay ═══
+    // We re-listen to the local io for teacher commands to bridge them
+    io.on('connection', (socket) => {
+        socket.on('teacher-start-poll', (data: { question: string; correct: string }) => {
+            emitToRelay('start-poll', { question: data.question });
+        });
+        socket.on('teacher-stop-poll', () => {
+            emitToRelay('stop-poll');
+        });
+        socket.on('pdf-start', (data: { totalPages: number }) => {
+            emitToRelay('pdf-start', { totalPages: data.totalPages });
+        });
+        socket.on('pdf-page', (data: { page: number }) => {
+            emitToRelay('pdf-page', { page: data.page });
+        });
+        socket.on('pdf-stop', () => {
+            emitToRelay('pdf-stop');
+        });
+    });
+
+    return { port: PORT, ip, roomCode, setPdfPath, getCurrentSessionId: () => currentSessionId };
 }
 

@@ -304,6 +304,7 @@
             justify-content: center;
             align-items: center;
             padding: 12px;
+            overflow: auto;
         }
 
         #pdf-canvas {
@@ -312,11 +313,78 @@
             border-radius: 8px;
         }
 
-        #pdf-page-info {
+        #pdf-controls {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 10px 16px;
+            background: #1a1d28;
+            border-top: 1px solid rgba(255,255,255,0.06);
+            flex-wrap: wrap;
+        }
+
+        #pdf-controls button {
+            padding: 8px 14px;
+            border: none;
+            border-radius: 10px;
+            background: #2a2d3a;
+            color: #fff;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            touch-action: manipulation;
+            transition: background 0.15s, opacity 0.15s;
+        }
+
+        #pdf-controls button:active {
+            opacity: 0.7;
+        }
+
+        #pdf-controls button:disabled {
+            opacity: 0.25;
+            cursor: not-allowed;
+        }
+
+        #pdf-controls .pdf-page-num {
+            font-size: 14px;
+            font-weight: 700;
+            color: #fff;
+            min-width: 60px;
             text-align: center;
-            padding: 12px;
-            font-size: 13px;
-            opacity: 0.5;
+            font-variant-numeric: tabular-nums;
+        }
+
+        #pdf-controls .follow-toggle {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            touch-action: manipulation;
+            transition: all 0.2s;
+        }
+
+        #pdf-controls .follow-toggle.active {
+            background: rgba(91,141,239,0.2);
+            color: #5b8def;
+        }
+
+        #pdf-controls .follow-toggle.inactive {
+            background: #2a2d3a;
+            color: rgba(255,255,255,0.5);
+        }
+
+        #pdf-controls .download-btn {
+            background: linear-gradient(135deg, #5b8def, #667eea);
+        }
+
+        #pdf-page-info {
+            display: none;
         }
 
         /* ─── CONNECTING SCREEN ─── */
@@ -399,7 +467,17 @@
         <div id="pdf-canvas-wrap">
             <canvas id="pdf-canvas"></canvas>
         </div>
-        <div id="pdf-page-info">Loading...</div>
+        <div id="pdf-controls">
+            <button id="pdf-prev" onclick="pdfPrev()">‹ Prev</button>
+            <span class="pdf-page-num" id="pdf-page-num">1 / 1</span>
+            <button id="pdf-next" onclick="pdfNext()">Next ›</button>
+            <label class="follow-toggle" style="cursor:pointer;display:flex;align-items:center;gap:6px;">
+                <input type="checkbox" id="pdf-follow" checked onchange="toggleFollow()" style="width:18px;height:18px;cursor:pointer;accent-color:#5b8def;">
+                <span>Follow Prof</span>
+            </label>
+            <button class="download-btn" onclick="downloadPdf()">⬇ Download</button>
+        </div>
+        <div id="pdf-page-info"></div>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
@@ -453,7 +531,7 @@
         let isCloudConnection = false;
 
         // ═══ Cloud Relay URL (set to your deployed Cloud Run relay) ═══
-        const CLOUD_RELAY_URL = ''; // e.g. 'https://pollster-relay-xyz.a.run.app'
+        const CLOUD_RELAY_URL = 'https://pollster-relay-7smaydwp3q-uc.a.run.app'; // Cloud Run relay
 
         // ═══ UI Helpers ═══
         function showUI(section) {
@@ -674,7 +752,7 @@
                     })();
                     break;
                 case 'pdf-page':
-                    if (pdfDoc && data && data.page) renderPdfPage(data.page);
+                    if (pdfDoc && data && data.page && followTeacher) renderPdfPage(data.page);
                     break;
                 case 'pdf-stop':
                     pdfDoc = null;
@@ -749,13 +827,58 @@
             const maxWidth = Math.min(window.innerWidth - 24, 800);
             const unscaledViewport = page.getViewport({ scale: 1 });
             const scale = maxWidth / unscaledViewport.width;
-            const viewport = page.getViewport({ scale });
+            const dpr = window.devicePixelRatio || 1;
+            const viewport = page.getViewport({ scale: scale * dpr });
 
             pdfCanvas.width = viewport.width;
             pdfCanvas.height = viewport.height;
+            pdfCanvas.style.width = (viewport.width / dpr) + 'px';
+            pdfCanvas.style.height = (viewport.height / dpr) + 'px';
             const ctx = pdfCanvas.getContext('2d');
             await page.render({ canvasContext: ctx, viewport }).promise;
-            pdfPageInfo.textContent = 'Page ' + pageNum + ' of ' + pdfDoc.numPages;
+            // Update controls
+            var pageNumEl = document.getElementById('pdf-page-num');
+            if (pageNumEl) pageNumEl.textContent = pageNum + ' / ' + pdfDoc.numPages;
+            var prevBtn = document.getElementById('pdf-prev');
+            var nextBtn = document.getElementById('pdf-next');
+            if (prevBtn) prevBtn.disabled = pageNum <= 1;
+            if (nextBtn) nextBtn.disabled = pageNum >= pdfDoc.numPages;
+            studentCurrentPage = pageNum;
+        }
+
+        // ═══ STUDENT PDF CONTROLS ═══
+        var studentCurrentPage = 1;
+        var followTeacher = true;
+
+        function pdfPrev() {
+            if (!pdfDoc || studentCurrentPage <= 1) return;
+            followTeacher = false;
+            updateFollowBtn();
+            renderPdfPage(studentCurrentPage - 1);
+        }
+
+        function pdfNext() {
+            if (!pdfDoc || studentCurrentPage >= pdfDoc.numPages) return;
+            followTeacher = false;
+            updateFollowBtn();
+            renderPdfPage(studentCurrentPage + 1);
+        }
+
+        function toggleFollow() {
+            var cb = document.getElementById('pdf-follow');
+            followTeacher = cb.checked;
+        }
+
+        function updateFollowBtn() {
+            var cb = document.getElementById('pdf-follow');
+            if (cb) cb.checked = followTeacher;
+        }
+
+        function downloadPdf() {
+            var a = document.createElement('a');
+            a.href = (serverBaseUrl || window.location.origin) + '/pdf';
+            a.download = 'presentation.pdf';
+            a.click();
         }
 
         // ═══ STARTUP: Decide initial screen ═══

@@ -11,7 +11,7 @@ import { initDatabase, upsertStudent, createSession, insertResponse } from './da
 // ═══ CLOUD RELAY CONFIG ═══
 // Set this to your deployed Cloud Run URL (e.g. 'https://pollster-relay-xyz.a.run.app')
 // Leave empty to disable cloud relay bridging
-const CLOUD_RELAY_URL = '';
+const CLOUD_RELAY_URL = 'https://pollster-relay-7smaydwp3q-uc.a.run.app';
 
 // Generate a 4-char alphanumeric room code (no confusable chars)
 function generateRoomCode(): string {
@@ -66,6 +66,7 @@ export async function startServer(userDataPath: string) {
     };
     const votedStudents = new Set<string>(); // tracks UUIDs
     let currentSessionId: number | null = null;
+    let resultsDirty = false; // for debounced broadcasting
 
     // PDF PRESENTATION STATE
     let currentPdfPath: string | null = null;
@@ -216,10 +217,19 @@ export async function startServer(userDataPath: string) {
                     );
                 }
 
-                io.emit('update-results', currentPoll.results);
+                resultsDirty = true;
             }
         });
     });
+
+    // ═══ DEBOUNCED RESULT BROADCASTING ═══
+    // Emit batched results 4x per second instead of per-vote
+    setInterval(() => {
+        if (resultsDirty) {
+            resultsDirty = false;
+            io.emit('batched-results', currentPoll.results);
+        }
+    }, 250);
 
     // Expose a function to set the PDF path from the main process
     const setPdfPath = (filePath: string) => {
@@ -283,12 +293,7 @@ export async function startServer(userDataPath: string) {
                         );
                     }
 
-                    // Update all local + relay students
-                    io.emit('update-results', currentPoll.results);
-                    relaySocket!.emit('teacher-to-students', {
-                        roomId: roomCode,
-                        payload: { type: 'update-results', results: currentPoll.results }
-                    });
+                    resultsDirty = true;
                 }
             } else if (type === 'student-register') {
                 const data = payload as { type: string; uuid: string; name: string };

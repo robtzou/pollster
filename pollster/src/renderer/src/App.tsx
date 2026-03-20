@@ -1,39 +1,101 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import io from 'socket.io-client'
-import StartSession from './components/StartSession'
-import Create from './components/Create'
-import Settings from './components/Settings'
+import DashboardLayout from './components/DashboardLayout'
+import TelemetryBar from './components/TelemetryBar'
+import SlideViewer from './components/SlideViewer'
+import LiveResultsGraph from './components/LiveResultsGraph'
+import ActionSidebar from './components/ActionSidebar'
 
 const socket = io('http://localhost:3000')
 
-type Page = 'session' | 'create' | 'settings'
-
-const NAV_ITEMS: { key: Page; label: string; icon: string }[] = [
-  { key: 'session', label: 'Start Session', icon: '▶' },
-  { key: 'create', label: 'Create', icon: '📝' },
-  { key: 'settings', label: 'Settings', icon: '⚙️' }
-]
-
 function App() {
-  const [currentPage, setCurrentPage] = useState<Page>('session')
-  const [serverUrl, setServerUrl] = useState<string>('')
-  const [roomCode, setRoomCode] = useState<string>('')
+  // ── Core state ──
+  const [serverUrl, setServerUrl] = useState('')
+  const [roomCode, setRoomCode] = useState('')
 
+  // ── Poll state ──
+  const [pollActive, setPollActive] = useState(false)
+  const [results, setResults] = useState({ A: 0, B: 0, C: 0, D: 0 })
+  const [studentCount, setStudentCount] = useState(0)
+
+  // ── PDF state ──
+  const [pdfLoaded, setPdfLoaded] = useState(false)
+  const [currentSlide, setCurrentSlide] = useState(1)
+  const [totalSlides, setTotalSlides] = useState(0)
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null)
+
+  // ── Init ──
   useEffect(() => {
-    window.api.getServerUrl().then((url) => setServerUrl(url))
-    window.api.getRoomCode().then((code) => setRoomCode(code))
+    window.api.getServerUrl().then(setServerUrl)
+    window.api.getRoomCode().then(setRoomCode)
   }, [])
 
-  const renderPage = () => {
-    switch (currentPage) {
-      case 'session':
-        return <StartSession socket={socket} serverUrl={serverUrl} roomCode={roomCode} />
-      case 'create':
-        return <Create />
-      case 'settings':
-        return <Settings />
+  // ── Socket listeners ──
+  useEffect(() => {
+    socket.on('batched-results', (newResults: { A: number; B: number; C: number; D: number }) => {
+      setResults(newResults)
+    })
+
+    socket.on('player-count', (count: number) => {
+      setStudentCount(count)
+    })
+
+    return () => {
+      socket.off('batched-results')
+      socket.off('player-count')
     }
-  }
+  }, [])
+
+  // ── Poll Controls ──
+  const startQuickPoll = useCallback(() => {
+    setPollActive(true)
+    setResults({ A: 0, B: 0, C: 0, D: 0 })
+    socket.emit('teacher-start-poll', {
+      question: 'Quick Poll',
+      correct: ''
+    })
+  }, [])
+
+  const stopPoll = useCallback(() => {
+    setPollActive(false)
+    socket.emit('teacher-stop-poll')
+  }, [])
+
+  // ── Slide Controls ──
+  const prevSlide = useCallback(() => {
+    if (currentSlide <= 1) return
+    const next = currentSlide - 1
+    setCurrentSlide(next)
+    socket.emit('pdf-page', { page: next })
+  }, [currentSlide])
+
+  const nextSlide = useCallback(() => {
+    if (currentSlide >= totalSlides) return
+    const next = currentSlide + 1
+    setCurrentSlide(next)
+    socket.emit('pdf-page', { page: next })
+  }, [currentSlide, totalSlides])
+
+  const loadPdf = useCallback(async () => {
+    const filePath = await window.api.selectPdf()
+    if (!filePath) return
+
+    await window.api.uploadPdf(filePath)
+    setPdfLoaded(true)
+    setCurrentSlide(1)
+    setPdfUrl('http://localhost:3000/pdf')
+
+    try {
+      const resp = await fetch('http://localhost:3000/pdf-info')
+      const info = await resp.json()
+      setTotalSlides(info.totalPages || 0)
+    } catch {
+      setTotalSlides(0)
+    }
+
+    // Broadcast to students
+    socket.emit('pdf-start', { totalPages: 0 })
+  }, [])
 
   return (
     <div className="app-layout">
@@ -43,22 +105,45 @@ function App() {
           <span className="sidebar-brand-icon">📊</span>
           <span className="sidebar-brand-text">Pollster</span>
         </div>
-        <div className="sidebar-nav">
-          {NAV_ITEMS.map((item) => (
-            <button
-              key={item.key}
-              className={`nav-btn${currentPage === item.key ? ' nav-btn-active' : ''}`}
-              onClick={() => setCurrentPage(item.key)}
-            >
-              <span className="nav-btn-icon">{item.icon}</span>
-              <span className="nav-btn-label">{item.label}</span>
-            </button>
-          ))}
-        </div>
       </nav>
 
-      {/* Page Content */}
-      <main className="page-content">{renderPage()}</main>
+      {/* Main Cockpit */}
+      <main className="page-content">
+        <DashboardLayout
+          telemetry={
+            <TelemetryBar
+              roomCode={roomCode}
+              serverUrl={serverUrl}
+              studentCount={studentCount}
+              pollActive={pollActive}
+            />
+          }
+          mainStage={
+            <>
+              <SlideViewer
+                pdfUrl={pdfUrl}
+                currentSlide={currentSlide}
+                pollActive={pollActive}
+              />
+              <LiveResultsGraph results={results} visible={pollActive} />
+            </>
+          }
+          sidebar={
+            <ActionSidebar
+              socket={socket}
+              pollActive={pollActive}
+              currentSlide={currentSlide}
+              totalSlides={totalSlides}
+              pdfLoaded={pdfLoaded}
+              onStartQuickPoll={startQuickPoll}
+              onStopPoll={stopPoll}
+              onPrevSlide={prevSlide}
+              onNextSlide={nextSlide}
+              onLoadPdf={loadPdf}
+            />
+          }
+        />
+      </main>
     </div>
   )
 }

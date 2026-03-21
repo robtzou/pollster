@@ -22,13 +22,15 @@ export default function SlideViewer({ pdfUrl, currentSlide, pollActive }: SlideV
   const iframeSrc = `http://localhost:3000/pdf#page=${currentSlide}&view=FitH&toolbar=0`
 
   return (
-    <div className="relative w-full h-full bg-[#0c0e14]">
-      <iframe
-        key={currentSlide}
-        src={iframeSrc}
-        className={`w-full h-full border-0 ${pollActive ? 'pointer-events-none' : ''}`}
-        title="Slide Viewer"
-      />
+    <div className="relative w-full h-full bg-[#0c0e14] flex items-center justify-center p-4">
+      <div className="relative w-full max-h-full" style={{ aspectRatio: '16 / 9', maxWidth: '100%' }}>
+        <iframe
+          key={currentSlide}
+          src={iframeSrc}
+          className={`absolute inset-0 w-full h-full border-0 rounded-lg shadow-2xl ${pollActive ? 'pointer-events-none' : ''}`}
+          title="Slide Viewer"
+        />
+      </div>
     </div>
   )
 }

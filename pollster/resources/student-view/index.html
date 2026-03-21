@@ -448,6 +448,16 @@
         <div class="pulse-dot"></div>
         <h2>You're in!</h2>
         <p>Waiting for teacher to start...</p>
+        <div class="question-form">
+            <p style="font-size:13px;opacity:0.5;margin-bottom:8px;">Have a question? Ask anonymously:</p>
+            <div style="display:flex;gap:8px;width:100%;max-width:340px;">
+                <input type="text" id="question-input" placeholder="Type your question..." maxlength="200" autocomplete="off"
+                    style="flex:1;padding:12px 14px;border-radius:12px;border:2px solid #2a2d3a;background:#1a1d28;color:#fff;font-size:15px;outline:none;">
+                <button onclick="sendQuestion()"
+                    style="padding:12px 18px;border-radius:12px;border:none;background:linear-gradient(135deg,#5b8def,#667eea);color:#fff;font-size:15px;font-weight:700;cursor:pointer;touch-action:manipulation;white-space:nowrap;">Send</button>
+            </div>
+            <div id="question-sent" style="display:none;color:#5b8def;font-size:13px;margin-top:6px;font-weight:600;">✓ Question sent!</div>
+        </div>
     </div>
 
     <!-- 5. POLL SCREEN -->
@@ -732,7 +742,11 @@
                     });
                     break;
                 case 'stop-poll':
-                    showUI('waiting');
+                    if (pdfDoc) {
+                        showUI('pdf');
+                    } else {
+                        showUI('waiting');
+                    }
                     break;
                 case 'pdf-start':
                     (async function () {
@@ -740,7 +754,14 @@
                         pdfPageInfo.textContent = 'Loading PDF...';
                         try {
                             const lib = await loadPdfJs();
-                            const resp = await fetch('/pdf');
+                            // Cloud students fetch from relay, local students from server
+                            var pdfFetchUrl;
+                            if (isCloudConnection && CLOUD_RELAY_URL) {
+                                pdfFetchUrl = CLOUD_RELAY_URL + '/pdf?room=' + encodeURIComponent(enteredCode);
+                            } else {
+                                pdfFetchUrl = (serverBaseUrl || window.location.origin) + '/pdf';
+                            }
+                            const resp = await fetch(pdfFetchUrl);
                             const blob = await resp.blob();
                             const arrayBuffer = await blob.arrayBuffer();
                             pdfDoc = await lib.getDocument({ data: arrayBuffer }).promise;
@@ -876,13 +897,35 @@
 
         function downloadPdf() {
             var a = document.createElement('a');
-            a.href = (serverBaseUrl || window.location.origin) + '/pdf';
+            if (isCloudConnection && CLOUD_RELAY_URL) {
+                a.href = CLOUD_RELAY_URL + '/pdf?room=' + encodeURIComponent(enteredCode);
+            } else {
+                a.href = (serverBaseUrl || window.location.origin) + '/pdf';
+            }
             a.download = 'presentation.pdf';
             a.click();
         }
 
+        function sendQuestion() {
+            var input = document.getElementById('question-input');
+            var text = input.value.trim();
+            if (!text) return;
+            emitToTeacher('student-question', { text: text });
+            input.value = '';
+            var sent = document.getElementById('question-sent');
+            sent.style.display = 'block';
+            setTimeout(function () { sent.style.display = 'none'; }, 2000);
+        }
+
         // ═══ STARTUP: Decide initial screen ═══
         (async function init() {
+            // If served from cloud relay with room code in URL (/join?room=XXXX)
+            if (window.__AUTO_ROOM_CODE) {
+                enteredCode = window.__AUTO_ROOM_CODE;
+                connectToServer();
+                return;
+            }
+
             // If accessed via QR scan (direct server URL), try auto-validating
             try {
                 const resp = await fetch('/api/room-info');

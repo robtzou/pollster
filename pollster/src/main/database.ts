@@ -9,6 +9,8 @@ let stmtCreateSession: Database.Statement;
 let stmtInsertResponse: Database.Statement;
 let stmtGetLeaderboard: Database.Statement;
 let stmtGetSessionHistory: Database.Statement;
+let stmtSaveResource: Database.Statement;
+let stmtLoadResource: Database.Statement;
 
 export function initDatabase(userDataPath: string) {
     const dbPath = path.join(userDataPath, 'pollster.db');
@@ -44,7 +46,15 @@ export function initDatabase(userDataPath: string) {
             FOREIGN KEY (session_id) REFERENCES sessions(id),
             FOREIGN KEY (student_uuid) REFERENCES students(uuid)
         );
-    `);
+
+        CREATE TABLE IF NOT EXISTS resources (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            content TEXT NOT NULL DEFAULT '',
+            updated_at TEXT DEFAULT (datetime('now'))
+        );
+
+        INSERT OR IGNORE INTO resources (id, content) VALUES (1, '');
+    `);;
 
     // Prepare statements
     stmtUpsertStudent = db.prepare(`
@@ -86,6 +96,14 @@ export function initDatabase(userDataPath: string) {
         GROUP BY s.id
         ORDER BY s.id DESC
         LIMIT 50
+    `);
+
+    stmtSaveResource = db.prepare(`
+        UPDATE resources SET content = ?, updated_at = datetime('now') WHERE id = 1
+    `);
+
+    stmtLoadResource = db.prepare(`
+        SELECT content FROM resources WHERE id = 1
     `);
 
     console.log('Database initialized at:', dbPath);
@@ -132,4 +150,13 @@ export interface SessionEntry {
 
 export function getSessionHistory(): SessionEntry[] {
     return stmtGetSessionHistory.all() as SessionEntry[];
+}
+
+export function saveResource(content: string): void {
+    stmtSaveResource.run(content);
+}
+
+export function loadResource(): string {
+    const row = stmtLoadResource.get() as { content: string } | undefined;
+    return row?.content ?? '';
 }

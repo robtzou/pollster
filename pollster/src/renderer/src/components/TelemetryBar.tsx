@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 
+const CLOUD_RELAY_URL = 'https://pollster-relay-7smaydwp3q-uc.a.run.app'
+
 interface TelemetryBarProps {
   roomCode: string
   serverUrl: string
@@ -16,14 +18,17 @@ export default function TelemetryBar({
 }: TelemetryBarProps) {
   const [qrLarge, setQrLarge] = useState(true)
   const qrSize = qrLarge ? 160 : 64
+  const joinUrl = CLOUD_RELAY_URL
+    ? `${CLOUD_RELAY_URL}/join?room=${roomCode}`
+    : serverUrl
 
   return (
     <div className="flex items-center gap-10 px-10 py-6 bg-[#141720] border-b border-white/[0.06] flex-1">
-      {/* QR Code — toggle size */}
-      {serverUrl && (
+      {/* QR Code — points to cloud relay for universal access */}
+      {joinUrl && roomCode && (
         <div className="relative shrink-0 group">
           <div className="bg-white rounded-xl p-3 transition-all duration-200">
-            <QRCodeSVG value={serverUrl} size={qrSize} />
+            <QRCodeSVG value={joinUrl} size={qrSize} />
           </div>
           <button
             onClick={() => setQrLarge(!qrLarge)}

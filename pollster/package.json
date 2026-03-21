@@ -30,6 +30,8 @@
     "internal-ip": "^9.0.0",
     "pdfjs-dist": "^5.4.624",
     "qrcode.react": "^4.2.0",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
     "socket.io": "^4.8.3",
     "socket.io-client": "^4.8.3",
     "uuid": "^13.0.0"

@@ -67,6 +67,10 @@ export async function startServer(userDataPath: string) {
     const votedStudents = new Set<string>(); // tracks UUIDs
     let currentSessionId: number | null = null;
     let resultsDirty = false; // for debounced broadcasting
+    const connectedStudents = new Map<string, { uuid: string; name: string }>(); // socketId → student
+    const questions: { id: number; text: string; timestamp: number }[] = [];
+    let questionIdCounter = 0;
+    let resourceContent = '';
 
     // PDF PRESENTATION STATE
     let currentPdfPath: string | null = null;
@@ -123,16 +127,25 @@ export async function startServer(userDataPath: string) {
             socket.emit('pdf-page', { page: currentPdfPage });
         }
 
+        // If a student joins mid-resource broadcast, send current resources
+        if (resourceContent) {
+            socket.emit('show-resources', { content: resourceContent });
+        }
+
         socket.on('disconnect', () => {
             console.log('User disconnected:', socket.id);
+            connectedStudents.delete(socket.id);
             io.emit('player-count', io.engine.clientsCount);
+            io.emit('student-roster', Array.from(connectedStudents.values()));
         });
 
         // --- STUDENT IDENTITY ---
         socket.on('student-register', (data: { uuid: string; name: string }) => {
             if (data.uuid && data.name) {
                 upsertStudent(data.uuid, data.name);
+                connectedStudents.set(socket.id, { uuid: data.uuid, name: data.name });
                 console.log('Student registered:', data.name, data.uuid.slice(0, 8));
+                io.emit('student-roster', Array.from(connectedStudents.values()));
             }
         });
 
@@ -220,6 +233,34 @@ export async function startServer(userDataPath: string) {
                 resultsDirty = true;
             }
         });
+
+        // --- STUDENT QUESTIONS (anonymous) ---
+        socket.on('student-question', (data: { text: string }) => {
+            if (!data.text || data.text.trim().length === 0) return;
+            questions.push({ id: ++questionIdCounter, text: data.text.trim(), timestamp: Date.now() });
+            io.emit('questions-updated', questions);
+        });
+
+        // --- TEACHER DISMISS QUESTION ---
+        socket.on('teacher-dismiss-question', (data: { id: number }) => {
+            const idx = questions.findIndex(q => q.id === data.id);
+            if (idx !== -1) {
+                questions.splice(idx, 1);
+                io.emit('questions-updated', questions);
+            }
+        });
+
+        // --- TEACHER RESOURCE BROADCASTING ---
+        socket.on('teacher-broadcast-resources', (data: { content: string }) => {
+            if (!data.content) return;
+            resourceContent = data.content;
+            io.emit('show-resources', { content: data.content });
+        });
+
+        socket.on('teacher-hide-resources', () => {
+            resourceContent = '';
+            io.emit('hide-resources');
+        });
     });
 
     // ═══ DEBOUNCED RESULT BROADCASTING ═══
@@ -227,7 +268,15 @@ export async function startServer(userDataPath: string) {
     setInterval(() => {
         if (resultsDirty) {
             resultsDirty = false;
+            // Local teacher dashboard
             io.emit('batched-results', currentPoll.results);
+            // Cloud-connected students via relay
+            if (relaySocket?.connected) {
+                relaySocket.emit('teacher-to-students', {
+                    roomId: roomCode,
+                    payload: { type: 'update-results', results: currentPoll.results }
+                });
+            }
         }
     }, 250);
 
@@ -243,6 +292,25 @@ export async function startServer(userDataPath: string) {
             totalPdfPages = 0;
         }
         console.log('PDF loaded:', filePath, '— pages:', totalPdfPages);
+
+        // Upload PDF to cloud relay so cloud students can access it
+        if (CLOUD_RELAY_URL) {
+            try {
+                const pdfBuffer = fs.readFileSync(filePath);
+                const base64 = pdfBuffer.toString('base64');
+                fetch(`${CLOUD_RELAY_URL}/pdf`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ roomId: roomCode, data: base64 })
+                }).then(() => {
+                    console.log('☁️ PDF uploaded to cloud relay');
+                }).catch((err: Error) => {
+                    console.warn('☁️ Failed to upload PDF to relay:', err.message);
+                });
+            } catch (err) {
+                console.warn('☁️ Failed to read PDF for relay upload');
+            }
+        }
     };
 
     const PORT = 3000;
@@ -299,7 +367,16 @@ export async function startServer(userDataPath: string) {
                 const data = payload as { type: string; uuid: string; name: string };
                 if (data.uuid && data.name) {
                     upsertStudent(data.uuid, data.name);
+                    connectedStudents.set('cloud-' + data.uuid, { uuid: data.uuid, name: data.name });
                     console.log('☁️ Cloud student registered:', data.name, data.uuid.slice(0, 8));
+                    io.emit('student-roster', Array.from(connectedStudents.values()));
+                }
+            } else if (type === 'student-question') {
+                const data = payload as { type: string; text: string };
+                if (data.text && data.text.trim().length > 0) {
+                    questions.push({ id: ++questionIdCounter, text: data.text.trim(), timestamp: Date.now() });
+                    io.emit('questions-updated', questions);
+                    console.log('☁️ Cloud student question received');
                 }
             }
         });
@@ -331,6 +408,12 @@ export async function startServer(userDataPath: string) {
         });
         socket.on('pdf-stop', () => {
             emitToRelay('pdf-stop');
+        });
+        socket.on('teacher-broadcast-resources', (data: { content: string }) => {
+            emitToRelay('show-resources', { content: data.content });
+        });
+        socket.on('teacher-hide-resources', () => {
+            emitToRelay('hide-resources');
         });
     });
 

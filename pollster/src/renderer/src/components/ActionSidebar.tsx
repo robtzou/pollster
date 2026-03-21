@@ -7,6 +7,9 @@ interface ActionSidebarProps {
   currentSlide: number
   totalSlides: number
   pdfLoaded: boolean
+  connectedStudents: { uuid: string; name: string }[]
+  questions: { id: number; text: string; timestamp: number }[]
+  onDismissQuestion: (id: number) => void
   onStartQuickPoll: () => void
   onStopPoll: () => void
   onPrevSlide: () => void
@@ -19,6 +22,9 @@ export default function ActionSidebar({
   currentSlide,
   totalSlides,
   pdfLoaded,
+  connectedStudents,
+  questions,
+  onDismissQuestion,
   onStartQuickPoll,
   onStopPoll,
   onPrevSlide,
@@ -136,6 +142,66 @@ export default function ActionSidebar({
             >
               Change presentation...
             </button>
+          </div>
+        )}
+      </section>
+
+      {/* Divider */}
+      <div className="h-px bg-white/[0.06]" />
+
+      {/* ══ CONNECTED STUDENTS ══ */}
+      <section>
+        <h3 className="text-[11px] uppercase tracking-[2px] text-white/30 font-semibold mb-3 flex items-center gap-2">
+          <span className="text-base">👥</span> Students ({connectedStudents.length})
+        </h3>
+        {connectedStudents.length === 0 ? (
+          <p className="text-sm text-white/25 text-center py-3">
+            No students connected yet.
+          </p>
+        ) : (
+          <div className="flex flex-col gap-1 max-h-[180px] overflow-y-auto">
+            {connectedStudents.map((s) => (
+              <div
+                key={s.uuid}
+                className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-white/[0.03] hover:bg-white/[0.06] transition-colors"
+              >
+                <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
+                <span className="text-sm font-medium text-white truncate">{s.name}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* Divider */}
+      <div className="h-px bg-white/[0.06]" />
+
+      {/* ══ STUDENT QUESTIONS ══ */}
+      <section>
+        <h3 className="text-[11px] uppercase tracking-[2px] text-white/30 font-semibold mb-3 flex items-center gap-2">
+          <span className="text-base">❓</span> Questions ({questions.length})
+        </h3>
+        {questions.length === 0 ? (
+          <p className="text-sm text-white/25 text-center py-3">
+            No questions yet.
+          </p>
+        ) : (
+          <div className="flex flex-col gap-2 max-h-[200px] overflow-y-auto">
+            {questions.map((q) => (
+              <div
+                key={q.id}
+                className="flex items-start gap-2.5 px-3 py-2.5 rounded-lg bg-white/[0.04] border border-white/[0.06]"
+              >
+                <span className="flex-1 text-sm text-white leading-snug">{q.text}</span>
+                <button
+                  onClick={() => onDismissQuestion(q.id)}
+                  className="text-white/20 hover:text-red-400 bg-transparent border-0 cursor-pointer text-base leading-none shrink-0 transition-colors"
+                  title="Dismiss"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
           </div>
         )}
       </section>

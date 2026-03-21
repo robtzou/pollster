@@ -10,7 +10,11 @@ const api = {
   getLeaderboard: (): Promise<{ uuid: string; name: string; total_answers: number; correct_answers: number }[]> =>
     ipcRenderer.invoke('get-leaderboard'),
   getSessionHistory: (): Promise<{ id: number; started_at: string; question_count: number; student_count: number; response_count: number }[]> =>
-    ipcRenderer.invoke('get-session-history')
+    ipcRenderer.invoke('get-session-history'),
+  saveResource: (content: string): Promise<boolean> =>
+    ipcRenderer.invoke('save-resource', content),
+  loadResource: (): Promise<string> =>
+    ipcRenderer.invoke('load-resource')
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

@@ -17,6 +17,8 @@ function App() {
   const [pollActive, setPollActive] = useState(false)
   const [results, setResults] = useState({ A: 0, B: 0, C: 0, D: 0 })
   const [studentCount, setStudentCount] = useState(0)
+  const [connectedStudents, setConnectedStudents] = useState<{ uuid: string; name: string }[]>([])
+  const [questions, setQuestions] = useState<{ id: number; text: string; timestamp: number }[]>([])
 
   // ── PDF state ──
   const [pdfLoaded, setPdfLoaded] = useState(false)
@@ -40,9 +42,19 @@ function App() {
       setStudentCount(count)
     })
 
+    socket.on('student-roster', (roster: { uuid: string; name: string }[]) => {
+      setConnectedStudents(roster)
+    })
+
+    socket.on('questions-updated', (q: { id: number; text: string; timestamp: number }[]) => {
+      setQuestions(q)
+    })
+
     return () => {
       socket.off('batched-results')
       socket.off('player-count')
+      socket.off('student-roster')
+      socket.off('questions-updated')
     }
   }, [])
 
@@ -97,14 +109,37 @@ function App() {
     socket.emit('pdf-start', { totalPages: 0 })
   }, [])
 
+  const [sidebarOpen, setSidebarOpen] = useState(true)
+
   return (
     <div className="app-layout">
       {/* Sidebar Navigation */}
-      <nav className="sidebar">
-        <div className="sidebar-brand">
+      <nav
+        className="sidebar transition-all duration-200"
+        style={{ width: sidebarOpen ? 220 : 56, minWidth: sidebarOpen ? 220 : 56 }}
+      >
+        <div className="sidebar-brand" style={{ justifyContent: sidebarOpen ? 'flex-start' : 'center', padding: sidebarOpen ? undefined : '8px 0 20px' }}>
           <span className="sidebar-brand-icon">📊</span>
-          <span className="sidebar-brand-text">Pollster</span>
+          {sidebarOpen && <span className="sidebar-brand-text">Pollster</span>}
         </div>
+        <button
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          style={{
+            marginTop: 'auto',
+            padding: '10px',
+            background: 'transparent',
+            border: 'none',
+            color: 'rgba(255,255,255,0.35)',
+            cursor: 'pointer',
+            fontSize: '16px',
+            transition: 'color 0.15s'
+          }}
+          title={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+          onMouseOver={(e) => (e.currentTarget.style.color = 'rgba(255,255,255,0.7)')}
+          onMouseOut={(e) => (e.currentTarget.style.color = 'rgba(255,255,255,0.35)')}
+        >
+          {sidebarOpen ? '◀' : '▶'}
+        </button>
       </nav>
 
       {/* Main Cockpit */}
@@ -135,6 +170,9 @@ function App() {
               currentSlide={currentSlide}
               totalSlides={totalSlides}
               pdfLoaded={pdfLoaded}
+              connectedStudents={connectedStudents}
+              questions={questions}
+              onDismissQuestion={(id) => socket.emit('teacher-dismiss-question', { id })}
               onStartQuickPoll={startQuickPoll}
               onStopPoll={stopPoll}
               onPrevSlide={prevSlide}

@@ -3,7 +3,7 @@ import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { startServer } from './server';
-import { getLeaderboard, getSessionHistory } from './database';
+import { getLeaderboard, getSessionHistory, saveResource, loadResource } from './database';
 
 let serverUrl = '';
 // ... standard electron setup ...
@@ -74,6 +74,17 @@ app.whenReady().then(async () => {
   // IPC: Get session history
   ipcMain.handle('get-session-history', () => {
     return getSessionHistory();
+  });
+
+  // IPC: Save resource markdown to SQLite
+  ipcMain.handle('save-resource', (_event, content: string) => {
+    saveResource(content);
+    return true;
+  });
+
+  // IPC: Load resource markdown from SQLite
+  ipcMain.handle('load-resource', () => {
+    return loadResource();
   });
 
   // Set app user model id for windows

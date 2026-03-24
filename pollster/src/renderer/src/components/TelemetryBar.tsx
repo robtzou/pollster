@@ -45,10 +45,15 @@ export default function TelemetryBar({
 
       {/* Room Code — readable from distance */}
       <div className="flex flex-col gap-1 flex-1">
-        <span className="text-xs uppercase tracking-[3px] text-white/40 font-semibold">
-          Room Code
-        </span>
-        <span className="text-7xl font-black font-mono tracking-[14px] text-[#5b8def] drop-shadow-[0_0_24px_rgba(91,141,239,0.35)]">
+        <div className="flex items-center gap-3 mb-1">
+          <span className="text-xs uppercase tracking-[3px] text-white/40 font-semibold">
+            Join at
+          </span>
+          <span className="text-sm font-mono text-white/70 bg-white/5 px-2.5 py-1 rounded-md border border-white/10 uppercase tracking-[1px]">
+            {CLOUD_RELAY_URL ? CLOUD_RELAY_URL.replace(/^https?:\/\//, '') : serverUrl}
+          </span>
+        </div>
+        <span className="text-7xl font-black font-mono tracking-[14px] text-[#5b8def] drop-shadow-[0_0_24px_rgba(91,141,239,0.35)] leading-none">
           {roomCode || '----'}
         </span>
       </div>

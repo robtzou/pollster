@@ -169,81 +169,6 @@
             opacity: 0.85;
         }
 
-        /* ─── RESOURCES SCREEN (Markdown) ─── */
-        #resources-ui {
-            display: none;
-            flex: 1;
-            padding: 24px;
-            overflow-y: auto;
-            -webkit-overflow-scrolling: touch;
-        }
-
-        .markdown-body {
-            color: rgba(255, 255, 255, 0.9);
-            line-height: 1.6;
-            font-size: 16px;
-        }
-
-        .markdown-body h1, .markdown-body h2, .markdown-body h3 {
-            margin-top: 24px;
-            margin-bottom: 16px;
-            font-weight: 700;
-            line-height: 1.25;
-            color: #fff;
-        }
-
-        .markdown-body h1 { font-size: 2em; padding-bottom: 0.3em; border-bottom: 1px solid rgba(255,255,255,0.1); }
-        .markdown-body h2 { font-size: 1.5em; padding-bottom: 0.3em; border-bottom: 1px solid rgba(255,255,255,0.1); }
-        .markdown-body h3 { font-size: 1.25em; }
-        
-        .markdown-body p, .markdown-body blockquote, .markdown-body ul, .markdown-body ol, .markdown-body table, .markdown-body pre {
-            margin-top: 0;
-            margin-bottom: 16px;
-        }
-        
-        .markdown-body a {
-            color: #5b8def;
-            text-decoration: none;
-        }
-        
-        .markdown-body a:hover {
-            text-decoration: underline;
-        }
-
-        .markdown-body ul, .markdown-body ol {
-            padding-left: 2em;
-            margin-bottom: 16px;
-        }
-
-        .markdown-body li {
-            margin-bottom: 0.25em;
-        }
-        
-        .markdown-body code {
-            padding: 0.2em 0.4em;
-            margin: 0;
-            font-size: 85%;
-            background-color: rgba(255,255,255,0.1);
-            border-radius: 6px;
-            font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace;
-        }
-
-        .markdown-body pre {
-            padding: 16px;
-            overflow: auto;
-            line-height: 1.45;
-            background-color: #1a1d28;
-            border-radius: 6px;
-        }
-        
-        .markdown-body pre code {
-            padding: 0;
-            margin: 0;
-            font-size: 100%;
-            background-color: transparent;
-            border: 0;
-        }
-
         /* ─── WAITING SCREEN ─── */
         #waiting-ui {
             display: none;
@@ -485,101 +410,10 @@
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
-
-        /* ─── THEME TOGGLE ─── */
-        #theme-toggle {
-            position: fixed;
-            top: 24px;
-            right: 24px;
-            width: 44px;
-            height: 44px;
-            border-radius: 50%;
-            background: #1a1d28;
-            border: 2px solid #2a2d3a;
-            color: #fff;
-            font-size: 20px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-            transition: all 0.2s;
-        }
-        
-        body.light-mode #theme-toggle {
-            background: #fff;
-            border-color: #dee2e6;
-            color: #1a1d28;
-        }
-
-        /* ─── LIGHT MODE OVERRIDES ─── */
-        body.light-mode {
-            background: #f8f9fa;
-            color: #1a1d28;
-        }
-        body.light-mode .code-char,
-        body.light-mode #name-input {
-            background: #fff;
-            border-color: #dee2e6;
-            color: #1a1d28;
-        }
-        body.light-mode #question-input {
-            background: #fff !important;
-            border-color: #dee2e6 !important;
-            color: #1a1d28 !important;
-        }
-        body.light-mode .markdown-body {
-            color: rgba(0, 0, 0, 0.85);
-        }
-        body.light-mode .markdown-body h1, 
-        body.light-mode .markdown-body h2, 
-        body.light-mode .markdown-body h3 {
-            color: #1a1d28;
-            border-bottom-color: rgba(0,0,0,0.1);
-        }
-        body.light-mode .markdown-body pre {
-            background-color: #e9ecef;
-        }
-        body.light-mode .markdown-body code {
-            background-color: rgba(0,0,0,0.05);
-        }
-        body.light-mode #question-text {
-            background: #fff;
-            color: #1a1d28;
-            box-shadow: 0 2px 12px rgba(0,0,0,0.05);
-        }
-        body.light-mode .btn-grid button {
-            box-shadow: 0 4px 12px rgba(0,0,0,0.08); /* Give answer buttons some pop on light bg */
-        }
-        body.light-mode .btn-grid button.selected {
-            border-color: #1a1d28;
-            box-shadow: 0 0 24px rgba(0, 0, 0, 0.15);
-        }
-        body.light-mode #pdf-controls {
-            background: #fff;
-            border-top-color: #dee2e6;
-        }
-        body.light-mode #pdf-controls button,
-        body.light-mode #pdf-controls .follow-toggle.inactive {
-            background: #e9ecef;
-            color: #1a1d28;
-        }
-        body.light-mode #pdf-controls .follow-toggle.inactive {
-            color: rgba(0,0,0,0.5);
-        }
-        body.light-mode #pdf-controls .pdf-page-num {
-            color: #1a1d28;
-        }
-        body.light-mode .spinner {
-            border-color: rgba(0,0,0,0.1);
-            border-top-color: #5b8def;
-        }
     </style>
 </head>
 
 <body>
-
-    <button id="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">☀️</button>
 
     <!-- 1. JOIN SCREEN: Enter room code -->
     <div id="join-ui">
@@ -656,26 +490,8 @@
         <div id="pdf-page-info"></div>
     </div>
 
-    <!-- 7. RESOURCES SCREEN -->
-    <div id="resources-ui" class="markdown-body"></div>
-
     <script src="/socket.io/socket.io.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script>
-        // ═══ THEME TOGGLE ═══
-        function toggleTheme() {
-            const isLight = document.body.classList.toggle('light-mode');
-            localStorage.setItem('pollster-theme', isLight ? 'light' : 'dark');
-            document.getElementById('theme-toggle').innerText = isLight ? '🌙' : '☀️';
-        }
-        // Initialize theme early to avoid flicker
-        if (localStorage.getItem('pollster-theme') === 'light') {
-            document.body.classList.add('light-mode');
-            window.addEventListener('DOMContentLoaded', () => {
-                document.getElementById('theme-toggle').innerText = '🌙';
-            });
-        }
-
         // ═══ PDF.js lazy loading ═══
         let pdfjsLib = null;
         async function loadPdfJs() {
@@ -703,7 +519,6 @@
         const waitingUI = document.getElementById('waiting-ui');
         const pollUI = document.getElementById('poll-ui');
         const pdfUI = document.getElementById('pdf-ui');
-        const resourcesUI = document.getElementById('resources-ui');
         const questionText = document.getElementById('question-text');
         const sentMsg = document.getElementById('sent-msg');
         const nameInput = document.getElementById('name-input');
@@ -730,17 +545,12 @@
 
         // ═══ UI Helpers ═══
         function showUI(section) {
-            [joinUI, connectingUI, nameUI, waitingUI, pollUI, pdfUI, resourcesUI].forEach(el => {
-                if (el) el.style.display = 'none';
-            });
-
-            if (section === 'join') joinUI.style.display = 'flex';
-            if (section === 'connecting') connectingUI.style.display = 'flex';
-            if (section === 'name') nameUI.style.display = 'flex';
-            if (section === 'waiting') waitingUI.style.display = 'flex';
-            if (section === 'poll') pollUI.style.display = 'flex';
-            if (section === 'pdf') pdfUI.style.display = 'flex';
-            if (section === 'resources') resourcesUI.style.display = 'block';
+            joinUI.style.display = section === 'join' ? 'flex' : 'none';
+            connectingUI.style.display = section === 'connecting' ? 'flex' : 'none';
+            nameUI.style.display = section === 'name' ? 'flex' : 'none';
+            waitingUI.style.display = section === 'waiting' ? 'flex' : 'none';
+            pollUI.style.display = section === 'poll' ? 'flex' : 'none';
+            pdfUI.style.display = section === 'pdf' ? 'flex' : 'none';
         }
 
         // ═══ Check if we're directly on the server (QR scan / direct URL) ═══
@@ -932,11 +742,7 @@
                     });
                     break;
                 case 'stop-poll':
-                    if (pdfDoc) {
-                        showUI('pdf');
-                    } else {
-                        showUI('waiting');
-                    }
+                    showUI('waiting');
                     break;
                 case 'pdf-start':
                     (async function () {
@@ -967,25 +773,6 @@
                     break;
                 case 'pdf-stop':
                     pdfDoc = null;
-                    showUI('waiting');
-                    break;
-                case 'show-resources':
-                    if (data && data.content) {
-                        try {
-                            const html = marked.parse(data.content);
-                            resourcesUI.innerHTML = html;
-                            // Critical: force all links to open in new tab so socket doesn't disconnect
-                            resourcesUI.querySelectorAll('a').forEach(a => {
-                                a.setAttribute('target', '_blank');
-                                a.setAttribute('rel', 'noopener noreferrer');
-                            });
-                            showUI('resources');
-                        } catch (e) {
-                            console.error('Markdown parse error:', e);
-                        }
-                    }
-                    break;
-                case 'hide-resources':
                     showUI('waiting');
                     break;
                 case 'update-results':

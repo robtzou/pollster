@@ -5,6 +5,8 @@ import TelemetryBar from './components/TelemetryBar'
 import SlideViewer from './components/SlideViewer'
 import LiveResultsGraph from './components/LiveResultsGraph'
 import ActionSidebar from './components/ActionSidebar'
+import ResourceViewer from './components/ResourceViewer'
+import ResourceEditor from './components/ResourceEditor'
 
 const socket = io('http://localhost:3000')
 
@@ -26,10 +28,16 @@ function App() {
   const [totalSlides, setTotalSlides] = useState(0)
   const [pdfUrl, setPdfUrl] = useState<string | null>(null)
 
+  // ── Resources state ──
+  const [resourceMode, setResourceMode] = useState(false)
+  const [resourceContent, setResourceContent] = useState('')
+  const [editingResources, setEditingResources] = useState(false)
+
   // ── Init ──
   useEffect(() => {
     window.api.getServerUrl().then(setServerUrl)
     window.api.getRoomCode().then(setRoomCode)
+    window.api.loadResource().then(setResourceContent)
   }, [])
 
   // ── Socket listeners ──
@@ -109,10 +117,43 @@ function App() {
     socket.emit('pdf-start', { totalPages: 0 })
   }, [])
 
+  const handleToggleResourceMode = useCallback(() => {
+    const newMode = !resourceMode
+    setResourceMode(newMode)
+    if (newMode) {
+      // Starting resource mode
+      socket.emit('teacher-broadcast-resources', { content: resourceContent })
+      if (pdfLoaded) socket.emit('pdf-stop')
+    } else {
+      // Stopping resource mode
+      socket.emit('teacher-hide-resources')
+      if (pdfLoaded) {
+        socket.emit('pdf-start', { totalPages: totalSlides })
+        socket.emit('pdf-page', { page: currentSlide })
+      }
+    }
+  }, [resourceMode, resourceContent, pdfLoaded, totalSlides, currentSlide])
+
+  const handleSaveResource = useCallback((content: string) => {
+    setResourceContent(content)
+    setEditingResources(false)
+    window.api.saveResource(content)
+    if (resourceMode) {
+      socket.emit('teacher-broadcast-resources', { content })
+    }
+  }, [resourceMode])
+
   const [sidebarOpen, setSidebarOpen] = useState(true)
 
   return (
     <div className="app-layout">
+      {editingResources && (
+        <ResourceEditor
+          content={resourceContent}
+          onSave={handleSaveResource}
+          onClose={() => setEditingResources(false)}
+        />
+      )}
       {/* Sidebar Navigation */}
       <nav
         className="sidebar transition-all duration-200"
@@ -155,11 +196,15 @@ function App() {
           }
           mainStage={
             <>
-              <SlideViewer
-                pdfUrl={pdfUrl}
-                currentSlide={currentSlide}
-                pollActive={pollActive}
-              />
+              {resourceMode ? (
+                <ResourceViewer content={resourceContent} />
+              ) : (
+                <SlideViewer
+                  pdfUrl={pdfUrl}
+                  currentSlide={currentSlide}
+                  pollActive={pollActive}
+                />
+              )}
               <LiveResultsGraph results={results} visible={pollActive} />
             </>
           }
@@ -172,6 +217,9 @@ function App() {
               pdfLoaded={pdfLoaded}
               connectedStudents={connectedStudents}
               questions={questions}
+              resourceMode={resourceMode}
+              onToggleResourceMode={handleToggleResourceMode}
+              onEditResources={() => setEditingResources(true)}
               onDismissQuestion={(id) => socket.emit('teacher-dismiss-question', { id })}
               onStartQuickPoll={startQuickPoll}
               onStopPoll={stopPoll}

@@ -3,7 +3,7 @@ import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { startServer } from './server';
-import { getLeaderboard, getSessionHistory, saveResource, loadResource } from './database';
+import { getSessionHistory, saveResource, loadResource } from './database';
 
 let serverUrl = '';
 // ... standard electron setup ...
@@ -39,7 +39,7 @@ function createWindow(): void {
 
 app.whenReady().then(async () => {
   // Start the server first
-  const { ip, port, roomCode, setPdfPath, getCurrentSessionId } = await startServer(app.getPath('userData'));
+  const { ip, port, roomCode, setPdfPath } = await startServer(app.getPath('userData'));
   serverUrl = `http://${ip}:${port}`;
   console.log(`Server running at ${serverUrl}`);
 
@@ -62,13 +62,6 @@ app.whenReady().then(async () => {
   ipcMain.handle('upload-pdf', (_event, filePath: string) => {
     setPdfPath(filePath);
     return true;
-  });
-
-  // IPC: Get leaderboard for the current session
-  ipcMain.handle('get-leaderboard', () => {
-    const sessionId = getCurrentSessionId();
-    if (!sessionId) return [];
-    return getLeaderboard(sessionId);
   });
 
   // IPC: Get session history

@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import type { Socket } from 'socket.io-client'
 
 interface ActionSidebarProps {
@@ -9,6 +8,9 @@ interface ActionSidebarProps {
   pdfLoaded: boolean
   connectedStudents: { uuid: string; name: string }[]
   questions: { id: number; text: string; timestamp: number }[]
+  resourceMode: boolean
+  onToggleResourceMode: () => void
+  onEditResources: () => void
   onDismissQuestion: (id: number) => void
   onStartQuickPoll: () => void
   onStopPoll: () => void
@@ -24,6 +26,9 @@ export default function ActionSidebar({
   pdfLoaded,
   connectedStudents,
   questions,
+  resourceMode,
+  onToggleResourceMode,
+  onEditResources,
   onDismissQuestion,
   onStartQuickPoll,
   onStopPoll,
@@ -31,16 +36,6 @@ export default function ActionSidebar({
   onNextSlide,
   onLoadPdf
 }: ActionSidebarProps) {
-  const [showLeaderboard, setShowLeaderboard] = useState(false)
-  const [leaderboard, setLeaderboard] = useState<
-    { uuid: string; name: string; total_answers: number; correct_answers: number }[]
-  >([])
-
-  const fetchLeaderboard = () => {
-    window.api.getLeaderboard().then(setLeaderboard)
-    setShowLeaderboard(!showLeaderboard)
-  }
-
   return (
     <div className="flex flex-col h-full p-5 gap-5 bg-[#141720]">
       {/* ══ POLL CONTROLS ══ */}
@@ -71,6 +66,38 @@ export default function ActionSidebar({
             ⏹ Stop Poll
           </button>
         )}
+      </section>
+
+      {/* Divider */}
+      <div className="h-px bg-white/[0.06]" />
+
+      {/* ══ VIEW MODE TOGGLE ══ */}
+      <section>
+        <h3 className="text-[11px] uppercase tracking-[2px] text-white/30 font-semibold mb-3">
+          View Mode
+        </h3>
+        <div className="flex flex-col gap-2">
+          <button
+            onClick={onToggleResourceMode}
+            className={`w-full py-3 px-4 text-[15px] font-bold rounded-xl border-0 cursor-pointer
+              transition-all duration-150 flex items-center justify-center gap-2
+              ${resourceMode
+                ? 'bg-gradient-to-br from-indigo-500 to-indigo-700 text-white shadow-[0_4px_16px_rgba(99,102,241,0.3)]'
+                : 'bg-white/[0.04] text-white/60 hover:bg-white/[0.08] hover:text-white'
+              }`}
+          >
+            {resourceMode ? '📊 Show Slides' : '📋 Show Resources'}
+          </button>
+          
+          <button
+            onClick={onEditResources}
+            className="w-full py-2 px-4 text-sm font-semibold rounded-lg border border-white/[0.06]
+              bg-transparent text-white/50 hover:bg-white/[0.04] hover:text-white cursor-pointer
+              flex items-center justify-center gap-2 transition-colors"
+          >
+            ✏️ Edit Resources
+          </button>
+        </div>
       </section>
 
       {/* Divider */}
@@ -208,74 +235,6 @@ export default function ActionSidebar({
 
       {/* Divider */}
       <div className="h-px bg-white/[0.06]" />
-
-      {/* ══ LEADERBOARD ══ */}
-      <section className="flex-1 min-h-0 flex flex-col">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-[11px] uppercase tracking-[2px] text-white/30 font-semibold flex items-center gap-2">
-            <span className="text-base">🏆</span> Leaderboard
-          </h3>
-          <button
-            onClick={fetchLeaderboard}
-            className="text-xs font-semibold px-3 py-1 rounded-md bg-white/[0.06]
-              text-white/50 hover:text-white/80 hover:bg-white/[0.1]
-              border-0 cursor-pointer transition-all"
-          >
-            {showLeaderboard ? 'Hide' : 'Show'}
-          </button>
-        </div>
-
-        {showLeaderboard && (
-          <div className="flex-1 overflow-y-auto min-h-0">
-            {leaderboard.length === 0 ? (
-              <p className="text-sm text-white/25 text-center py-6">
-                No responses yet.
-              </p>
-            ) : (
-              <div className="flex flex-col gap-1.5">
-                {leaderboard.map((entry, i) => {
-                  const pct =
-                    entry.total_answers > 0
-                      ? Math.round((entry.correct_answers / entry.total_answers) * 100)
-                      : 0
-                  return (
-                    <div
-                      key={entry.uuid}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-white/[0.03] hover:bg-white/[0.06] transition-colors"
-                    >
-                      {/* Rank */}
-                      <span className="w-6 text-sm font-bold text-white/30 tabular-nums">
-                        {i + 1}
-                      </span>
-                      {/* Name */}
-                      <span className="flex-1 text-sm font-semibold text-white truncate">
-                        {entry.name}
-                      </span>
-                      {/* Score */}
-                      <span className="text-sm">
-                        <span className="text-emerald-400 font-bold">{entry.correct_answers}</span>
-                        <span className="text-white/25">/{entry.total_answers}</span>
-                      </span>
-                      {/* Accuracy */}
-                      <span
-                        className={`text-xs font-bold px-2 py-0.5 rounded-md ${
-                          pct >= 70
-                            ? 'bg-emerald-500/15 text-emerald-400'
-                            : pct >= 40
-                              ? 'bg-yellow-500/15 text-yellow-400'
-                              : 'bg-red-500/15 text-red-400'
-                        }`}
-                      >
-                        {pct}%
-                      </span>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-        )}
-      </section>
     </div>
   )
 }

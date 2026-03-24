@@ -7,7 +7,6 @@ let db: Database.Database;
 let stmtUpsertStudent: Database.Statement;
 let stmtCreateSession: Database.Statement;
 let stmtInsertResponse: Database.Statement;
-let stmtGetLeaderboard: Database.Statement;
 let stmtGetSessionHistory: Database.Statement;
 let stmtSaveResource: Database.Statement;
 let stmtLoadResource: Database.Statement;
@@ -71,19 +70,6 @@ export function initDatabase(userDataPath: string) {
         VALUES (?, ?, ?, ?, ?, ?)
     `);
 
-    stmtGetLeaderboard = db.prepare(`
-        SELECT
-            s.uuid,
-            s.name,
-            COUNT(r.id) AS total_answers,
-            SUM(r.is_correct) AS correct_answers
-        FROM responses r
-        JOIN students s ON s.uuid = r.student_uuid
-        WHERE r.session_id = ?
-        GROUP BY s.uuid
-        ORDER BY correct_answers DESC, total_answers ASC
-    `);
-
     stmtGetSessionHistory = db.prepare(`
         SELECT
             s.id,
@@ -127,17 +113,6 @@ export function insertResponse(
 ): void {
     const isCorrect = answer === correctAnswer ? 1 : 0;
     stmtInsertResponse.run(sessionId, studentUuid, question, answer, correctAnswer, isCorrect);
-}
-
-export interface LeaderboardEntry {
-    uuid: string;
-    name: string;
-    total_answers: number;
-    correct_answers: number;
-}
-
-export function getLeaderboard(sessionId: number): LeaderboardEntry[] {
-    return stmtGetLeaderboard.all(sessionId) as LeaderboardEntry[];
 }
 
 export interface SessionEntry {

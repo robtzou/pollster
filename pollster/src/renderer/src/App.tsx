@@ -7,6 +7,7 @@ import LiveResultsGraph from './components/LiveResultsGraph'
 import ActionSidebar from './components/ActionSidebar'
 import ResourceViewer from './components/ResourceViewer'
 import ResourceEditor from './components/ResourceEditor'
+import SequencerLayout from './components/SequencerLayout'
 
 const socket = io('http://localhost:3000')
 
@@ -32,6 +33,9 @@ function App() {
   const [resourceMode, setResourceMode] = useState(false)
   const [resourceContent, setResourceContent] = useState('')
   const [editingResources, setEditingResources] = useState(false)
+
+  // ── Mode state ──
+  const [appMode, setAppMode] = useState<'dashboard' | 'forge'>('dashboard')
 
   // ── Init ──
   useEffect(() => {
@@ -145,8 +149,12 @@ function App() {
 
   const [sidebarOpen, setSidebarOpen] = useState(true)
 
+  if (appMode === 'forge') {
+    return <SequencerLayout onExit={() => setAppMode('dashboard')} />
+  }
+
   return (
-    <div className="app-layout">
+    <div className="app-layout !flex-col">
       {editingResources && (
         <ResourceEditor
           content={resourceContent}
@@ -154,46 +162,9 @@ function App() {
           onClose={() => setEditingResources(false)}
         />
       )}
-      {/* Sidebar Navigation */}
-      <nav
-        className="sidebar transition-all duration-200"
-        style={{ width: sidebarOpen ? 220 : 56, minWidth: sidebarOpen ? 220 : 56 }}
-      >
-        <div className="sidebar-brand" style={{ justifyContent: sidebarOpen ? 'flex-start' : 'center', padding: sidebarOpen ? undefined : '8px 0 20px' }}>
-          <span className="sidebar-brand-icon">📊</span>
-          {sidebarOpen && <span className="sidebar-brand-text">Pollster</span>}
-        </div>
-        <button
-          onClick={() => setSidebarOpen(!sidebarOpen)}
-          style={{
-            marginTop: 'auto',
-            padding: '10px',
-            background: 'transparent',
-            border: 'none',
-            color: 'rgba(255,255,255,0.35)',
-            cursor: 'pointer',
-            fontSize: '16px',
-            transition: 'color 0.15s'
-          }}
-          title={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
-          onMouseOver={(e) => (e.currentTarget.style.color = 'rgba(255,255,255,0.7)')}
-          onMouseOut={(e) => (e.currentTarget.style.color = 'rgba(255,255,255,0.35)')}
-        >
-          {sidebarOpen ? '◀' : '▶'}
-        </button>
-      </nav>
-
-      {/* Main Cockpit */}
-      <main className="page-content">
+      {/* Main Cockpit - Top flex area taking up remaining height */}
+      <main className="flex-1 min-h-0 relative bg-[#0f1117]">
         <DashboardLayout
-          telemetry={
-            <TelemetryBar
-              roomCode={roomCode}
-              serverUrl={serverUrl}
-              studentCount={studentCount}
-              pollActive={pollActive}
-            />
-          }
           mainStage={
             <>
               {resourceMode ? (
@@ -208,28 +179,54 @@ function App() {
               <LiveResultsGraph results={results} visible={pollActive} />
             </>
           }
-          sidebar={
-            <ActionSidebar
-              socket={socket}
-              pollActive={pollActive}
-              currentSlide={currentSlide}
-              totalSlides={totalSlides}
-              pdfLoaded={pdfLoaded}
-              connectedStudents={connectedStudents}
-              questions={questions}
-              resourceMode={resourceMode}
-              onToggleResourceMode={handleToggleResourceMode}
-              onEditResources={() => setEditingResources(true)}
-              onDismissQuestion={(id) => socket.emit('teacher-dismiss-question', { id })}
-              onStartQuickPoll={startQuickPoll}
-              onStopPoll={stopPoll}
-              onPrevSlide={prevSlide}
-              onNextSlide={nextSlide}
-              onLoadPdf={loadPdf}
-            />
-          }
         />
       </main>
+
+      {/* Bottom Control Bar - max 20% height */}
+      <footer className="flex shrink-0 h-[20vh] min-h-[140px] max-h-[180px] bg-[#141720] border-t border-white/[0.06] overflow-hidden w-full">
+        {/* Nav Sidebar - minimized horizontal mode */}
+        <nav 
+          className="flex flex-col items-center justify-center min-w-[80px] w-[80px] border-r border-white/[0.06] bg-[rgba(18,22,33,0.95)] transition-all cursor-pointer hover:bg-white/[0.05]"
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          title="Toggle Navigation"
+        >
+          <span className="text-3xl mb-1 drop-shadow-md">📊</span>
+          <span className="text-[10px] font-bold text-white/50 tracking-wider">APP</span>
+        </nav>
+
+        {/* Telemetry Bar */}
+        <div className="flex-shrink-0 border-r border-white/[0.06] h-full flex flex-col justify-center">
+          <TelemetryBar
+            roomCode={roomCode}
+            serverUrl={serverUrl}
+            studentCount={studentCount}
+            pollActive={pollActive}
+          />
+        </div>
+
+        {/* Action Sidebar / Controls */}
+        <div className="flex-1 flex min-w-0 overflow-x-auto overflow-y-hidden custom-scrollbar">
+          <ActionSidebar
+            socket={socket}
+            pollActive={pollActive}
+            currentSlide={currentSlide}
+            totalSlides={totalSlides}
+            pdfLoaded={pdfLoaded}
+            connectedStudents={connectedStudents}
+            questions={questions}
+            resourceMode={resourceMode}
+            onToggleResourceMode={handleToggleResourceMode}
+            onEditResources={() => setEditingResources(true)}
+            onToggleForge={() => setAppMode('forge')}
+            onDismissQuestion={(id) => socket.emit('teacher-dismiss-question', { id })}
+            onStartQuickPoll={startQuickPoll}
+            onStopPoll={stopPoll}
+            onPrevSlide={prevSlide}
+            onNextSlide={nextSlide}
+            onLoadPdf={loadPdf}
+          />
+        </div>
+      </footer>
     </div>
   )
 }

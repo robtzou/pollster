@@ -11,6 +11,10 @@ declare global {
       getSessionHistory: () => Promise<{ id: number; started_at: string; question_count: number; student_count: number; response_count: number }[]>
       saveResource: (content: string) => Promise<boolean>
       loadResource: () => Promise<string>
+      importImage: () => Promise<string | null>
+      exportLesson: (timeline: any[]) => Promise<boolean>
+      readFileBuffer: (path: string) => Promise<Uint8Array | null>
+      saveBase64Image: (dataUrl: string) => Promise<string | null>
     }
   }
 }

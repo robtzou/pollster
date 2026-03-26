@@ -1,5 +1,8 @@
 import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
-import { join } from 'path'
+import { join, basename } from 'path'
+import * as fs from 'fs'
+import * as crypto from 'crypto'
+import archiver from 'archiver'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { startServer } from './server';
@@ -42,6 +45,99 @@ app.whenReady().then(async () => {
   const { ip, port, roomCode, setPdfPath } = await startServer(app.getPath('userData'));
   serverUrl = `http://${ip}:${port}`;
   console.log(`Server running at ${serverUrl}`);
+
+  // Setup temporal build directory
+  const tempBuildDir = join(app.getPath('userData'), 'temp_build');
+  const tempImagesDir = join(tempBuildDir, 'images');
+  if (fs.existsSync(tempBuildDir)) {
+    fs.rmSync(tempBuildDir, { recursive: true, force: true });
+  }
+  fs.mkdirSync(tempImagesDir, { recursive: true });
+
+  // IPC: import-image
+  ipcMain.handle('import-image', async () => {
+    const result = await dialog.showOpenDialog({
+      title: 'Select an Image',
+      filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif', 'svg'] }],
+      properties: ['openFile']
+    });
+    if (result.canceled || result.filePaths.length === 0) return null;
+    
+    const sourcePath = result.filePaths[0];
+    const fileName = basename(sourcePath);
+    const uniqueFileName = `${crypto.randomUUID()}-${fileName}`;
+    const destPath = join(tempImagesDir, uniqueFileName);
+    
+    fs.copyFileSync(sourcePath, destPath);
+    return destPath;
+  });
+
+  // IPC: read-file-buffer
+  ipcMain.handle('read-file-buffer', async (_event, filePath: string) => {
+    try {
+      return fs.readFileSync(filePath);
+    } catch (e) {
+      console.error('Failed to read file buffer:', e);
+      return null;
+    }
+  });
+
+  // IPC: save-base64-image
+  ipcMain.handle('save-base64-image', async (_event, dataUrl: string) => {
+    try {
+      const matches = dataUrl.match(/^data:([A-Za-z-+/]+);base64,(.+)$/);
+      if (!matches || matches.length !== 3) {
+        throw new Error('Invalid base64 string');
+      }
+      const buffer = Buffer.from(matches[2], 'base64');
+      const uniqueFileName = `${crypto.randomUUID()}.jpg`;
+      const destPath = join(tempImagesDir, uniqueFileName);
+      
+      fs.writeFileSync(destPath, buffer);
+      return destPath;
+    } catch (e) {
+      console.error('Failed to save base64 image:', e);
+      return null;
+    }
+  });
+
+  // IPC: export-lesson
+  ipcMain.handle('export-lesson', async (_event, timeline: any[]) => {
+    try {
+      const result = await dialog.showSaveDialog({
+        title: 'Export Lesson',
+        defaultPath: 'Lesson.sig',
+        filters: [{ name: 'Signette Pack', extensions: ['sig'] }]
+      });
+      
+      if (result.canceled || !result.filePath) return false;
+      const savePath = result.filePath;
+
+      // Write manifest.json
+      const manifestPath = join(tempBuildDir, 'manifest.json');
+      fs.writeFileSync(manifestPath, JSON.stringify({ version: 1, timeline }, null, 2));
+
+      // Pack it up
+      return new Promise<boolean>((resolve) => {
+        const output = fs.createWriteStream(savePath);
+        const archive = archiver('zip', { zlib: { level: 9 } });
+
+        output.on('close', () => resolve(true));
+        archive.on('error', (err) => {
+          console.error(err);
+          resolve(false);
+        });
+
+        archive.pipe(output);
+        archive.directory(tempBuildDir, false);
+        archive.finalize();
+      });
+
+    } catch (e) {
+      console.error('Failed to export lesson:', e);
+      return false;
+    }
+  });
 
   // IPC handler so the renderer can request the server URL
   ipcMain.handle('get-server-url', () => serverUrl);

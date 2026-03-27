@@ -17,10 +17,20 @@ const api = {
     ipcRenderer.invoke('import-image'),
   exportLesson: (timeline: any[]): Promise<boolean> =>
     ipcRenderer.invoke('export-lesson', timeline),
+  importLesson: (): Promise<any[] | null> =>
+    ipcRenderer.invoke('import-lesson'),
   readFileBuffer: (path: string): Promise<Uint8Array | null> =>
     ipcRenderer.invoke('read-file-buffer', path),
   saveBase64Image: (dataUrl: string): Promise<string | null> =>
-    ipcRenderer.invoke('save-base64-image', dataUrl)
+    ipcRenderer.invoke('save-base64-image', dataUrl),
+  clearActiveLesson: (): Promise<boolean> =>
+    ipcRenderer.invoke('clear-active-lesson'),
+  saveActiveImage: (dataUrl: string): Promise<string | null> =>
+    ipcRenderer.invoke('save-active-image', dataUrl),
+  getRadarState: (): Promise<any> =>
+    ipcRenderer.invoke('get-radar-state'),
+  endSessionExport: (): Promise<string | null> =>
+    ipcRenderer.invoke('end-session-export')
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

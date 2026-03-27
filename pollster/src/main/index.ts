@@ -3,9 +3,10 @@ import { join, basename } from 'path'
 import * as fs from 'fs'
 import * as crypto from 'crypto'
 import archiver from 'archiver'
+import AdmZip from 'adm-zip'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
-import { startServer } from './server';
+import { startServer, getRadarState, endSessionCSVHandler } from './server';
 import { getSessionHistory, saveResource, loadResource } from './database';
 
 let serverUrl = '';
@@ -136,6 +137,102 @@ app.whenReady().then(async () => {
     } catch (e) {
       console.error('Failed to export lesson:', e);
       return false;
+    }
+  });
+
+  const activeLessonDir = join(app.getPath('userData'), 'active_lesson');
+  const activeImagesDir = join(activeLessonDir, 'images');
+
+  // IPC: get-radar-state
+  ipcMain.handle('get-radar-state', () => getRadarState());
+
+  // IPC: clear-active-lesson
+  ipcMain.handle('clear-active-lesson', async () => {
+    try {
+      if (fs.existsSync(activeLessonDir)) {
+        fs.rmSync(activeLessonDir, { recursive: true, force: true });
+      }
+      fs.mkdirSync(activeImagesDir, { recursive: true });
+      return true;
+    } catch (e) {
+      console.error('Failed to clear active lesson dir:', e);
+      return false;
+    }
+  });
+
+  // IPC: end-session-export
+  ipcMain.handle('end-session-export', async () => {
+    if (!endSessionCSVHandler) return null;
+    const csvData = await endSessionCSVHandler();
+    if (!csvData) return null;
+
+    const { filePath } = await dialog.showSaveDialog({
+      title: 'Export Engagement Radar',
+      defaultPath: `Signette_Radar_${new Date().toISOString().split('T')[0]}.csv`,
+      filters: [{ name: 'CSV Files', extensions: ['csv'] }]
+    });
+
+    if (filePath) {
+      fs.writeFileSync(filePath, csvData);
+      return filePath;
+    }
+    return null;
+  })
+
+  // IPC: save-active-image
+  ipcMain.handle('save-active-image', async (_event, dataUrl: string) => {
+    try {
+      const matches = dataUrl.match(/^data:image\/([a-zA-Z0-9]+);base64,(.+)$/);
+      if (!matches || matches.length !== 3) {
+        throw new Error('Invalid base64 string');
+      }
+      const buffer = Buffer.from(matches[2], 'base64');
+      const uniqueFileName = `${crypto.randomUUID()}.jpg`;
+      const destPath = join(activeImagesDir, uniqueFileName);
+      
+      fs.writeFileSync(destPath, buffer);
+      return destPath;
+    } catch (e) {
+      console.error('Failed to save active base64 image:', e);
+      return null;
+    }
+  });
+
+  // IPC: import-lesson
+  ipcMain.handle('import-lesson', async () => {
+    try {
+      const result = await dialog.showOpenDialog({
+        title: 'Load Signette Lesson',
+        filters: [{ name: 'Signette Pack', extensions: ['sig'] }],
+        properties: ['openFile']
+      });
+
+      if (result.canceled || result.filePaths.length === 0) return null;
+      const sigPath = result.filePaths[0];
+
+      // Aggressively wipe active_lesson to prevent ghost images
+      if (fs.existsSync(activeLessonDir)) {
+        fs.rmSync(activeLessonDir, { recursive: true, force: true });
+      }
+      fs.mkdirSync(activeImagesDir, { recursive: true });
+
+      // Unpack using adm-zip
+      const zip = new AdmZip(sigPath);
+      zip.extractAllTo(activeLessonDir, true);
+
+      // Read manifest.json
+      const manifestPath = join(activeLessonDir, 'manifest.json');
+      if (!fs.existsSync(manifestPath)) {
+        throw new Error('manifest.json not found in the .sig package');
+      }
+
+      const manifestRaw = fs.readFileSync(manifestPath, 'utf8');
+      const manifest = JSON.parse(manifestRaw);
+
+      return manifest.timeline;
+    } catch (e) {
+      console.error('Failed to import lesson:', e);
+      return null;
     }
   });
 

@@ -5,8 +5,26 @@ import { io as ioClient, Socket as ClientSocket } from 'socket.io-client';
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
+import fastifyStatic from '@fastify/static';
 import { app as electronApp } from 'electron';
-import { initDatabase, upsertStudent, createSession, insertResponse } from './database';
+import { initDatabase, upsertStudent, createSession, insertResponse, saveSessionEngagement } from './database';
+
+// ═══ EPICS 9: RADAR TELEMETRY ═══
+export const globalRadar = new Map<string, { name: string, lastSeen: Date, joinedAt: Date, pulsesAnswered: number }>();
+export let globalTotalPulsesLaunched = 0;
+export let endSessionCSVHandler: () => Promise<string | null>;
+
+export function getRadarState() {
+    return {
+        totalPulsesLaunched: globalTotalPulsesLaunched,
+        students: Array.from(globalRadar.entries()).map(([uuid, data]) => ({
+            uuid,
+            name: data.name,
+            lastSeen: data.lastSeen.getTime(),
+            pulsesAnswered: data.pulsesAnswered
+        }))
+    };
+}
 
 // ═══ CLOUD RELAY CONFIG ═══
 // Set this to your deployed Cloud Run URL (e.g. 'https://pollster-relay-xyz.a.run.app')
@@ -48,10 +66,25 @@ export async function startServer(userDataPath: string) {
 
     // Generate room code for this session
     const roomCode = generateRoomCode();
+    // DIAGNOSTIC DUMP: 
+    fs.writeFileSync('/tmp/pollster_room_code.txt', roomCode);
 
     const app = Fastify();
     // Enable CORS for all HTTP routes (needed for Vite dev server)
     await app.register(cors, { origin: '*' });
+
+    // Serve local images extracted from loaded .sig files
+    const mediaDir = path.join(userDataPath, 'active_lesson', 'images');
+    if (!fs.existsSync(mediaDir)) {
+        fs.mkdirSync(mediaDir, { recursive: true });
+    }
+    
+    await app.register(fastifyStatic, {
+        root: mediaDir,
+        prefix: '/media/', // http://localhost:3000/media/image.jpg
+        decorateReply: false
+    });
+
     // Allow CORS so the React frontend (Teacher) can talk to this local server
     const io = new Server(app.server, {
         cors: { origin: "*" }
@@ -144,9 +177,25 @@ export async function startServer(userDataPath: string) {
             if (data.uuid && data.name) {
                 upsertStudent(data.uuid, data.name);
                 connectedStudents.set(socket.id, { uuid: data.uuid, name: data.name });
+                
+                // Epic 9: Radar Registration
+                if (!globalRadar.has(data.uuid)) {
+                    globalRadar.set(data.uuid, { name: data.name, lastSeen: new Date(), joinedAt: new Date(), pulsesAnswered: 0 });
+                } else {
+                    const radar = globalRadar.get(data.uuid)!;
+                    radar.lastSeen = new Date();
+                    radar.name = data.name;
+                }
+
                 console.log('Student registered:', data.name, data.uuid.slice(0, 8));
                 io.emit('student-roster', Array.from(connectedStudents.values()));
             }
+        });
+
+        // Epic 9: Heartbeat Loop
+        socket.on('radar-pong', (data: { uuid: string }) => {
+            const radar = globalRadar.get(data.uuid);
+            if (radar) radar.lastSeen = new Date();
         });
 
         // --- TEACHER COMMANDS ---
@@ -157,6 +206,9 @@ export async function startServer(userDataPath: string) {
             currentPoll.correctAnswer = data.correct;
             currentPoll.results = { A: 0, B: 0, C: 0, D: 0 };
             votedStudents.clear();
+            
+            // Epic 9: Active Engagement Tracker
+            globalTotalPulsesLaunched++;
 
             // Create a session on the first question
             if (data.questionCount && !currentSessionId) {
@@ -219,6 +271,10 @@ export async function startServer(userDataPath: string) {
                 votedStudents.add(studentUuid);
                 currentPoll.results[answerKey]++;
 
+                // Epic 9: Active Engagement Tracker
+                const radar = globalRadar.get(studentUuid);
+                if (radar) radar.pulsesAnswered++;
+
                 // Record to database
                 if (currentSessionId) {
                     insertResponse(
@@ -279,6 +335,41 @@ export async function startServer(userDataPath: string) {
             }
         }
     }, 250);
+
+    // Epic 9: Heartbeat Ping
+    setInterval(() => {
+        io.emit('radar-ping');
+        if (relaySocket?.connected && roomCode) {
+            relaySocket.emit('teacher-to-students', {
+                roomId: roomCode,
+                payload: { type: 'radar-ping' }
+            });
+        }
+    }, 30000);
+
+    // Epic 9: End Session Exporter Bridge
+    endSessionCSVHandler = async () => {
+        if (!currentSessionId) return null;
+        
+        const engagements = Array.from(globalRadar.entries()).map(([uuid, data]) => {
+            const minutes = (Date.now() - data.joinedAt.getTime()) / 60000;
+            const ratio = globalTotalPulsesLaunched > 0 ? data.pulsesAnswered / globalTotalPulsesLaunched : 1;
+            return { uuid, name: data.name, minutes, ratio, pulsesAnswered: data.pulsesAnswered };
+        });
+
+        saveSessionEngagement(currentSessionId, engagements);
+
+        const rows = [['Student Name', 'Device ID', 'Active Minutes', 'Pulses Answered', 'Final Grade (%)'].join(',')];
+        for (const e of engagements) {
+            rows.push(`"${e.name}",${e.uuid},${e.minutes.toFixed(1)},${e.pulsesAnswered},${(e.ratio * 100).toFixed(1)}%`);
+        }
+
+        currentSessionId = null;
+        globalTotalPulsesLaunched = 0;
+        globalRadar.clear(); // Reset radar for next class
+        
+        return rows.join('\n');
+    };
 
     // Expose a function to set the PDF path from the main process
     const setPdfPath = (filePath: string) => {
@@ -351,6 +442,10 @@ export async function startServer(userDataPath: string) {
                     votedStudents.add(data.uuid);
                     currentPoll.results[data.answer]++;
 
+                    // Epic 9: Active Engagement Tracker
+                    const radar = globalRadar.get(data.uuid);
+                    if (radar) radar.pulsesAnswered++;
+
                     if (currentSessionId) {
                         insertResponse(
                             currentSessionId,
@@ -363,13 +458,41 @@ export async function startServer(userDataPath: string) {
 
                     resultsDirty = true;
                 }
-            } else if (type === 'student-register') {
+            } else if (type === 'student-join' || type === 'student-register') {
+                // FIX [3]: Cloud student joining should register them and notify teacher
                 const data = payload as { type: string; uuid: string; name: string };
                 if (data.uuid && data.name) {
                     upsertStudent(data.uuid, data.name);
                     connectedStudents.set('cloud-' + data.uuid, { uuid: data.uuid, name: data.name });
-                    console.log('☁️ Cloud student registered:', data.name, data.uuid.slice(0, 8));
+
+                    // Epic 9: Radar Registration for cloud students
+                    if (!globalRadar.has(data.uuid)) {
+                        globalRadar.set(data.uuid, { name: data.name, lastSeen: new Date(), joinedAt: new Date(), pulsesAnswered: 0 });
+                    } else {
+                        const radar = globalRadar.get(data.uuid)!;
+                        radar.lastSeen = new Date();
+                        radar.name = data.name;
+                    }
+
+                    console.log('☁️ Cloud student joined:', data.name, data.uuid.slice(0, 8));
+                    io.emit('student-joined', { uuid: data.uuid, name: data.name });
                     io.emit('student-roster', Array.from(connectedStudents.values()));
+
+                    // If a poll is active, immediately send it to the cloud student
+                    if (currentPoll.active) {
+                        relaySocket!.emit('teacher-to-students', {
+                            roomId: roomCode,
+                            payload: { type: 'start-poll', question: currentPoll.question }
+                        });
+                    }
+                }
+            } else if (type === 'radar-pong') {
+                // FIX [5]: Update lastSeen for cloud students via relay heartbeat
+                const data = payload as { type: string; uuid: string };
+                const radar = globalRadar.get(data.uuid);
+                if (radar) {
+                    radar.lastSeen = new Date();
+                    console.log('☁️ radar-pong from cloud student:', data.uuid.slice(0, 8));
                 }
             } else if (type === 'student-question') {
                 const data = payload as { type: string; text: string };

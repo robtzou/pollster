@@ -10,6 +10,7 @@ let stmtInsertResponse: Database.Statement;
 let stmtGetSessionHistory: Database.Statement;
 let stmtSaveResource: Database.Statement;
 let stmtLoadResource: Database.Statement;
+let stmtSaveEngagement: Database.Statement;
 
 export function initDatabase(userDataPath: string) {
     const dbPath = path.join(userDataPath, 'pollster.db');
@@ -52,8 +53,18 @@ export function initDatabase(userDataPath: string) {
             updated_at TEXT DEFAULT (datetime('now'))
         );
 
+        CREATE TABLE IF NOT EXISTS session_engagement (
+            session_id INTEGER NOT NULL,
+            student_uuid TEXT NOT NULL,
+            total_active_minutes REAL DEFAULT 0,
+            final_engagement_ratio REAL DEFAULT 0,
+            PRIMARY KEY (session_id, student_uuid),
+            FOREIGN KEY (session_id) REFERENCES sessions(id),
+            FOREIGN KEY (student_uuid) REFERENCES students(uuid)
+        );
+
         INSERT OR IGNORE INTO resources (id, content) VALUES (1, '');
-    `);;
+    `);
 
     // Prepare statements
     stmtUpsertStudent = db.prepare(`
@@ -90,6 +101,11 @@ export function initDatabase(userDataPath: string) {
 
     stmtLoadResource = db.prepare(`
         SELECT content FROM resources WHERE id = 1
+    `);
+
+    stmtSaveEngagement = db.prepare(`
+        INSERT INTO session_engagement (session_id, student_uuid, total_active_minutes, final_engagement_ratio)
+        VALUES (?, ?, ?, ?)
     `);
 
     console.log('Database initialized at:', dbPath);
@@ -134,4 +150,24 @@ export function saveResource(content: string): void {
 export function loadResource(): string {
     const row = stmtLoadResource.get() as { content: string } | undefined;
     return row?.content ?? '';
+}
+
+export function saveSessionEngagement(
+    sessionId: number,
+    engagements: { uuid: string; minutes: number; ratio: number }[]
+): void {
+    const insertMany = db.transaction((rows: any[]) => {
+        for (const row of rows) {
+            stmtSaveEngagement.run(row.sessionId, row.uuid, row.minutes, row.ratio);
+        }
+    });
+
+    const mapped = engagements.map(e => ({
+        sessionId,
+        uuid: e.uuid,
+        minutes: e.minutes,
+        ratio: e.ratio
+    }));
+
+    insertMany(mapped);
 }

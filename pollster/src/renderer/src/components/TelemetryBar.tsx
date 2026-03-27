@@ -3,17 +3,19 @@ import { QRCodeSVG } from 'qrcode.react'
 const CLOUD_RELAY_URL = 'https://pollster-relay-7smaydwp3q-uc.a.run.app'
 
 interface TelemetryBarProps {
-  roomCode: string
-  serverUrl: string
+  roomCode: string | null
+  serverUrl: string | null
   studentCount: number
   pollActive: boolean
+  onToggleRadar?: () => void
 }
 
 export default function TelemetryBar({
   roomCode,
   serverUrl,
   studentCount,
-  pollActive
+  pollActive,
+  onToggleRadar
 }: TelemetryBarProps) {
   const qrSize = 90
   const joinUrl = CLOUD_RELAY_URL
@@ -21,12 +23,12 @@ export default function TelemetryBar({
     : serverUrl
 
   return (
-    <div className="flex items-center h-full gap-6 px-6 py-2 bg-[#141720] flex-1 overflow-hidden">
+    <div className="relative flex items-center h-full gap-6 px-6 py-2 bg-[#141720] flex-1">
       {/* QR Code — points to cloud relay for universal access */}
       {joinUrl && roomCode && (
         <div className="relative shrink-0 group">
           <div className="bg-white rounded-xl p-2 transition-all duration-200">
-            <QRCodeSVG value={joinUrl} size={qrSize} />
+            <QRCodeSVG value={joinUrl || ''} size={qrSize} />
           </div>
         </div>
       )}
@@ -37,7 +39,7 @@ export default function TelemetryBar({
           <span className="text-[10px] uppercase tracking-[2px] text-white/40 font-semibold">
             Join at
           </span>
-          <span className="text-[10px] font-mono text-white/70 bg-white/5 px-1.5 py-0.5 rounded border border-white/10 uppercase tracking-[1px] truncate max-w-[150px]" title={CLOUD_RELAY_URL ? CLOUD_RELAY_URL.replace(/^https?:\/\//, '') : serverUrl}>
+          <span className="text-[10px] font-mono text-white/70 bg-white/5 px-1.5 py-0.5 rounded border border-white/10 uppercase tracking-[1px] truncate max-w-[150px]" title={CLOUD_RELAY_URL ? CLOUD_RELAY_URL.replace(/^https?:\/\//, '') : (serverUrl || undefined)}>
             {CLOUD_RELAY_URL ? CLOUD_RELAY_URL.replace(/^https?:\/\//, '') : serverUrl}
           </span>
         </div>
@@ -48,19 +50,23 @@ export default function TelemetryBar({
 
       {/* Right side info */}
       <div className="flex flex-col items-end justify-center gap-2 shrink-0">
-        {/* Student Count */}
-        <div className="flex items-center gap-2 text-sm">
+        {/* Student Count - Clickable Radar Toggle */}
+        <button 
+          onClick={onToggleRadar}
+          className={`flex items-center gap-2 text-sm border-none bg-transparent cursor-pointer hover:bg-white/[0.04] p-1.5 -ml-1.5 rounded-lg transition-colors`}
+          title="Open Engagement Radar"
+        >
           <span>👥</span>
           <span
             className={`font-semibold px-2 py-0.5 rounded-full ${
               studentCount > 0
-                ? 'bg-emerald-500/15 text-emerald-400'
+                ? 'bg-emerald-500/15 text-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.3)]'
                 : 'bg-white/[0.06] text-white/40'
             }`}
           >
             {studentCount}
           </span>
-        </div>
+        </button>
 
         {/* Poll Status */}
         {pollActive && (

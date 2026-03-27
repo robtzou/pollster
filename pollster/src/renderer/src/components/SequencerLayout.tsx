@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import type { TimelineBlock } from '../types'
 import Card from './Card'
+import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.js?url'
 
 interface SequencerLayoutProps {
   onExit: () => void
@@ -64,17 +65,24 @@ export default function SequencerLayout({ onExit }: SequencerLayoutProps) {
 
       setIsProcessingPdf(true)
       
-      const buffer = await window.api.readFileBuffer(pdfPath)
-      if (!buffer) throw new Error("Could not read file buffer")
+      let rawBuffer = await window.api.readFileBuffer(pdfPath)
+      if (!rawBuffer) throw new Error("Could not read file buffer")
 
-      // Dynamically import pdfjs-dist to keep initial load light
+      // Electron IPC often JSON-serializes Node Buffers to an object { type: 'Buffer', data: [...] }
+      let pdfData: Uint8Array
+      if ((rawBuffer as any).type === 'Buffer' && Array.isArray((rawBuffer as any).data)) {
+        pdfData = new Uint8Array((rawBuffer as any).data)
+      } else if (rawBuffer instanceof Uint8Array) {
+        pdfData = rawBuffer
+      } else {
+        pdfData = new Uint8Array(rawBuffer as unknown as Iterable<number>)
+      }
+
+      // Dynamically import pdfjs-dist backend logic
       const pdfjsLib = await import('pdfjs-dist')
-      pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-        'pdfjs-dist/build/pdf.worker.mjs',
-        import.meta.url
-      ).toString()
+      pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl
 
-      const loadingTask = pdfjsLib.getDocument({ data: buffer })
+      const loadingTask = pdfjsLib.getDocument({ data: pdfData })
       const pdf = await loadingTask.promise
 
       const newBlocks: TimelineBlock[] = []

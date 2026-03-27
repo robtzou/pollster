@@ -1,0 +1,237 @@
+.join-page {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #0a0b10;
+  position: relative;
+  overflow: hidden;
+}
+
+.join-page::before {
+  content: '';
+  position: absolute;
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(91,141,239,0.08) 0%, transparent 70%);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.join-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2rem;
+  z-index: 1;
+}
+
+.join-brand {
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 6px;
+  color: rgba(255,255,255,0.2);
+  text-transform: uppercase;
+}
+
+.join-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 3rem 2.5rem;
+  border-radius: 20px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+  backdrop-filter: blur(20px);
+  min-width: 340px;
+}
+
+.join-title {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: #fff;
+  text-align: center;
+  letter-spacing: -0.02em;
+}
+
+.join-subtitle {
+  font-size: 0.95rem;
+  color: rgba(255,255,255,0.45);
+  text-align: center;
+  font-weight: 500;
+}
+
+.join-subtitle strong {
+  color: #5b8def;
+  font-weight: 800;
+  letter-spacing: 4px;
+}
+
+/* Code Inputs */
+.code-inputs {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.code-box {
+  width: 68px;
+  height: 84px;
+  background: #13151e;
+  border: 2px solid rgba(255,255,255,0.08);
+  border-radius: 14px;
+  color: #fff;
+  font-size: 2.25rem;
+  font-weight: 800;
+  text-align: center;
+  text-transform: uppercase;
+  outline: none;
+  caret-color: #5b8def;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+.code-box:focus {
+  border-color: #5b8def;
+  box-shadow: 0 0 24px rgba(91,141,239,0.2);
+}
+
+/* Name Input */
+.name-input {
+  width: 100%;
+  max-width: 280px;
+  padding: 16px 20px;
+  background: #13151e;
+  border: 2px solid rgba(255,255,255,0.08);
+  border-radius: 14px;
+  color: #fff;
+  font-size: 1.125rem;
+  font-weight: 600;
+  text-align: center;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+.name-input:focus {
+  border-color: #5b8def;
+  box-shadow: 0 0 24px rgba(91,141,239,0.2);
+}
+
+.name-input::placeholder {
+  color: rgba(255,255,255,0.2);
+  font-weight: 500;
+}
+
+/* Buttons */
+.join-btn {
+  width: 100%;
+  max-width: 280px;
+  padding: 16px;
+  font-size: 1.125rem;
+  font-weight: 700;
+  border: none;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #5b8def, #667eea);
+  color: #fff;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.15s;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+.join-btn:active {
+  transform: scale(0.97);
+  opacity: 0.85;
+}
+
+.back-btn {
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.3);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 8px 16px;
+  border-radius: 8px;
+  transition: color 0.15s, background 0.15s;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+.back-btn:hover {
+  color: rgba(255,255,255,0.6);
+  background: rgba(255,255,255,0.04);
+}
+
+/* Error */
+.join-error {
+  color: #ef4444;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* Spinner */
+.connecting-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(255,255,255,0.1);
+  border-top-color: #5b8def;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Animation */
+.animate-in {
+  animation: fadeSlideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Footer */
+.join-footer {
+  position: fixed;
+  bottom: 0;
+  width: 100%;
+  padding: 1.25rem;
+  text-align: center;
+}
+
+.footer-link {
+  color: rgba(255,255,255,0.2);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-decoration: none;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  transition: color 0.2s;
+}
+
+.footer-link:hover {
+  color: rgba(255,255,255,0.5);
+}
+
+/* Mobile */
+@media (max-width: 480px) {
+  .code-box {
+    width: 58px;
+    height: 72px;
+    font-size: 1.75rem;
+  }
+  
+  .join-card {
+    padding: 2rem 1.5rem;
+    min-width: 0;
+    width: 90vw;
+  }
+}

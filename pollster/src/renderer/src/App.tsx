@@ -1,13 +1,16 @@
 import { useEffect, useState, useCallback } from 'react'
 import io from 'socket.io-client'
+import RadarDropdown from './components/RadarDropdown'
 import DashboardLayout from './components/DashboardLayout'
 import TelemetryBar from './components/TelemetryBar'
-import SlideViewer from './components/SlideViewer'
 import LiveResultsGraph from './components/LiveResultsGraph'
 import ActionSidebar from './components/ActionSidebar'
 import ResourceViewer from './components/ResourceViewer'
 import ResourceEditor from './components/ResourceEditor'
 import SequencerLayout from './components/SequencerLayout'
+import StageRenderer from './components/StageRenderer'
+import type { TimelineBlock } from './types'
+import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.js?url'
 
 const socket = io('http://localhost:3000')
 
@@ -23,11 +26,10 @@ function App() {
   const [connectedStudents, setConnectedStudents] = useState<{ uuid: string; name: string }[]>([])
   const [questions, setQuestions] = useState<{ id: number; text: string; timestamp: number }[]>([])
 
-  // ── PDF state ──
-  const [pdfLoaded, setPdfLoaded] = useState(false)
-  const [currentSlide, setCurrentSlide] = useState(1)
-  const [totalSlides, setTotalSlides] = useState(0)
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null)
+  // ── Teleprompter State (Epic 7 & 8) ──
+  const [activeTimeline, setActiveTimeline] = useState<TimelineBlock[]>([])
+  const [currentIndex, setCurrentIndex] = useState(0)
+  const [isProcessingPdf, setIsProcessingPdf] = useState(false)
 
   // ── Resources state ──
   const [resourceMode, setResourceMode] = useState(false)
@@ -85,58 +87,117 @@ function App() {
     socket.emit('teacher-stop-poll')
   }, [])
 
-  // ── Slide Controls ──
-  const prevSlide = useCallback(() => {
-    if (currentSlide <= 1) return
-    const next = currentSlide - 1
-    setCurrentSlide(next)
-    socket.emit('pdf-page', { page: next })
-  }, [currentSlide])
-
-  const nextSlide = useCallback(() => {
-    if (currentSlide >= totalSlides) return
-    const next = currentSlide + 1
-    setCurrentSlide(next)
-    socket.emit('pdf-page', { page: next })
-  }, [currentSlide, totalSlides])
-
-  const loadPdf = useCallback(async () => {
-    const filePath = await window.api.selectPdf()
-    if (!filePath) return
-
-    await window.api.uploadPdf(filePath)
-    setPdfLoaded(true)
-    setCurrentSlide(1)
-    setPdfUrl('http://localhost:3000/pdf')
-
-    try {
-      const resp = await fetch('http://localhost:3000/pdf-info')
-      const info = await resp.json()
-      setTotalSlides(info.totalPages || 0)
-    } catch {
-      setTotalSlides(0)
+  // ── Auto-fire Polls Rule ──
+  useEffect(() => {
+    if (activeTimeline.length === 0) return
+    const block = activeTimeline[currentIndex]
+    
+    if (block && block.type === 'pulse') {
+       setPollActive(true)
+       setResults({ A: 0, B: 0, C: 0, D: 0 })
+       socket.emit('teacher-start-poll', {
+         question: block.question,
+         correct: '',
+         questionCount: block.options.filter(opt => opt.trim() !== '').length
+       })
+    } else {
+       setPollActive(false)
+       socket.emit('teacher-stop-poll')
     }
+  }, [currentIndex, activeTimeline])
 
-    // Broadcast to students
-    socket.emit('pdf-start', { totalPages: 0 })
+  // ── Teleprompter Controls ──
+  const prevBlock = useCallback(() => {
+    if (currentIndex > 0) setCurrentIndex(curr => curr - 1)
+  }, [currentIndex])
+
+  const nextBlock = useCallback(() => {
+    if (currentIndex < activeTimeline.length - 1) setCurrentIndex(curr => curr + 1)
+  }, [currentIndex, activeTimeline.length])
+
+  const loadLesson = useCallback(async () => {
+    const timeline = await window.api.importLesson()
+    if (timeline && timeline.length > 0) {
+      setActiveTimeline(timeline)
+      setCurrentIndex(0)
+      setAppMode('dashboard')
+    }
+  }, [])
+
+  const loadRawPdf = useCallback(async () => {
+    try {
+      const pdfPath = await window.api.selectPdf()
+      if (!pdfPath) return
+
+      setIsProcessingPdf(true)
+      
+      await window.api.clearActiveLesson()
+
+      let rawBuffer = await window.api.readFileBuffer(pdfPath)
+      if (!rawBuffer) throw new Error("Could not read file buffer")
+
+      let pdfData: Uint8Array
+      if ((rawBuffer as any).type === 'Buffer' && Array.isArray((rawBuffer as any).data)) {
+        pdfData = new Uint8Array((rawBuffer as any).data)
+      } else if (rawBuffer instanceof Uint8Array) {
+        pdfData = rawBuffer
+      } else {
+        pdfData = new Uint8Array(rawBuffer as unknown as Iterable<number>)
+      }
+
+      const pdfjsLib = await import('pdfjs-dist')
+      pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl
+
+      const loadingTask = pdfjsLib.getDocument({ data: pdfData })
+      const pdf = await loadingTask.promise
+
+      const newBlocks: TimelineBlock[] = []
+      
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i)
+        const viewport = page.getViewport({ scale: 2.0 })
+        
+        const canvas = document.createElement('canvas')
+        const context = canvas.getContext('2d')
+        if (!context) continue
+
+        canvas.height = viewport.height
+        canvas.width = viewport.width
+
+        await page.render({ canvasContext: context, viewport } as any).promise
+
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.8)
+        const localPath = await window.api.saveActiveImage(dataUrl)
+
+        if (localPath) {
+          newBlocks.push({
+            id: crypto.randomUUID(),
+            type: 'slide',
+            localPath
+          })
+        }
+      }
+
+      setActiveTimeline(newBlocks)
+      setCurrentIndex(0)
+      setAppMode('dashboard')
+    } catch (error) {
+      console.error("Raw PDF Import Failed", error)
+      alert("Failed to import PDF slides. Check console for details.")
+    } finally {
+      setIsProcessingPdf(false)
+    }
   }, [])
 
   const handleToggleResourceMode = useCallback(() => {
     const newMode = !resourceMode
     setResourceMode(newMode)
     if (newMode) {
-      // Starting resource mode
       socket.emit('teacher-broadcast-resources', { content: resourceContent })
-      if (pdfLoaded) socket.emit('pdf-stop')
     } else {
-      // Stopping resource mode
       socket.emit('teacher-hide-resources')
-      if (pdfLoaded) {
-        socket.emit('pdf-start', { totalPages: totalSlides })
-        socket.emit('pdf-page', { page: currentSlide })
-      }
     }
-  }, [resourceMode, resourceContent, pdfLoaded, totalSlides, currentSlide])
+  }, [resourceMode, resourceContent])
 
   const handleSaveResource = useCallback((content: string) => {
     setResourceContent(content)
@@ -147,6 +208,7 @@ function App() {
     }
   }, [resourceMode])
 
+  const [radarOpen, setRadarOpen] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(true)
 
   if (appMode === 'forge') {
@@ -154,7 +216,9 @@ function App() {
   }
 
   return (
-    <div className="app-layout !flex-col">
+    <div className="app-layout !flex-col relative">
+      {radarOpen && <RadarDropdown onClose={() => setRadarOpen(false)} />}
+      
       {editingResources && (
         <ResourceEditor
           content={resourceContent}
@@ -170,10 +234,12 @@ function App() {
               {resourceMode ? (
                 <ResourceViewer content={resourceContent} />
               ) : (
-                <SlideViewer
-                  pdfUrl={pdfUrl}
-                  currentSlide={currentSlide}
+                <StageRenderer
+                  block={activeTimeline[currentIndex]}
+                  serverUrl={serverUrl}
                   pollActive={pollActive}
+                  pollQuestion={activeTimeline[currentIndex]?.type === 'pulse' ? (activeTimeline[currentIndex] as Extract<TimelineBlock, { type: 'pulse' }>).question : 'Quick Poll'}
+                  pollResults={results}
                 />
               )}
               <LiveResultsGraph results={results} visible={pollActive} />
@@ -201,17 +267,14 @@ function App() {
             serverUrl={serverUrl}
             studentCount={studentCount}
             pollActive={pollActive}
+            onToggleRadar={() => setRadarOpen(prev => !prev)}
           />
         </div>
 
         {/* Action Sidebar / Controls */}
         <div className="flex-1 flex min-w-0 overflow-x-auto overflow-y-hidden custom-scrollbar">
           <ActionSidebar
-            socket={socket}
             pollActive={pollActive}
-            currentSlide={currentSlide}
-            totalSlides={totalSlides}
-            pdfLoaded={pdfLoaded}
             connectedStudents={connectedStudents}
             questions={questions}
             resourceMode={resourceMode}
@@ -221,9 +284,14 @@ function App() {
             onDismissQuestion={(id) => socket.emit('teacher-dismiss-question', { id })}
             onStartQuickPoll={startQuickPoll}
             onStopPoll={stopPoll}
-            onPrevSlide={prevSlide}
-            onNextSlide={nextSlide}
-            onLoadPdf={loadPdf}
+            activeTimeline={activeTimeline}
+            currentIndex={currentIndex}
+            isProcessingPdf={isProcessingPdf}
+            onPrevBlock={prevBlock}
+            onNextBlock={nextBlock}
+            onLoadLesson={loadLesson}
+            onLoadRawPdf={loadRawPdf}
+            onToggleRadar={() => setRadarOpen(true)}
           />
         </div>
       </footer>

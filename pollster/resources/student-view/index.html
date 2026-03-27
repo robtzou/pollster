@@ -991,6 +991,11 @@
                 case 'update-results':
                     // Teacher sent updated results — no action needed on student side
                     break;
+                case 'radar-ping':
+                    if (studentUuid) {
+                        emitToTeacher('radar-pong', { uuid: studentUuid });
+                    }
+                    break;
             }
         }
 
@@ -1021,6 +1026,13 @@
             socket.on('relay-to-students', function (payload) {
                 if (payload && payload.type) {
                     handleTeacherEvent(payload.type, payload);
+                }
+            });
+
+            // Epic 9: Passive Heartbeat
+            socket.on('radar-ping', function () {
+                if (studentUuid) {
+                    emitToTeacher('radar-pong', { uuid: studentUuid });
                 }
             });
         }

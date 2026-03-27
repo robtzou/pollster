@@ -13,8 +13,13 @@ declare global {
       loadResource: () => Promise<string>
       importImage: () => Promise<string | null>
       exportLesson: (timeline: any[]) => Promise<boolean>
+      importLesson: () => Promise<any[] | null>
       readFileBuffer: (path: string) => Promise<Uint8Array | null>
       saveBase64Image: (dataUrl: string) => Promise<string | null>
+      clearActiveLesson: () => Promise<boolean>
+      saveActiveImage: (dataUrl: string) => Promise<string | null>
+      getRadarState: () => Promise<{ totalPulsesLaunched: number, students: { uuid: string, name: string, lastSeen: number, pulsesAnswered: number }[] }>
+      endSessionExport: () => Promise<string | null>
     }
   }
 }

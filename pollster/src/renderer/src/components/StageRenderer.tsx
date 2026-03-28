@@ -26,7 +26,7 @@ export default function StageRenderer({
           WAITING FOR LESSON
         </h3>
         <p className="text-white/20 mt-2 text-sm max-w-sm text-center relative z-10 drop-shadow">
-          Load a lesson from your tools to begin the Signette presentation.
+          Load a lesson from your tools to begin the Handout presentation.
         </p>
       </div>
     )

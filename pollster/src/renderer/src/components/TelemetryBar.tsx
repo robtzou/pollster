@@ -1,6 +1,7 @@
 import { QRCodeSVG } from 'qrcode.react'
 
-const CLOUD_RELAY_URL = 'https://pollster-relay-7smaydwp3q-uc.a.run.app'
+
+const PUBLIC_JOIN_URL = 'https://handout.live'
 
 interface TelemetryBarProps {
   roomCode: string | null
@@ -18,8 +19,8 @@ export default function TelemetryBar({
   onToggleRadar
 }: TelemetryBarProps) {
   const qrSize = 90
-  const joinUrl = CLOUD_RELAY_URL
-    ? `${CLOUD_RELAY_URL}/join?room=${roomCode}`
+  const joinUrl = PUBLIC_JOIN_URL
+    ? `${PUBLIC_JOIN_URL}?room=${roomCode}`
     : serverUrl
 
   return (
@@ -39,8 +40,8 @@ export default function TelemetryBar({
           <span className="text-[10px] uppercase tracking-[2px] text-white/40 font-semibold">
             Join at
           </span>
-          <span className="text-[10px] font-mono text-white/70 bg-white/5 px-1.5 py-0.5 rounded border border-white/10 uppercase tracking-[1px] truncate max-w-[150px]" title={CLOUD_RELAY_URL ? CLOUD_RELAY_URL.replace(/^https?:\/\//, '') : (serverUrl || undefined)}>
-            {CLOUD_RELAY_URL ? CLOUD_RELAY_URL.replace(/^https?:\/\//, '') : serverUrl}
+          <span className="text-[10px] font-mono text-white/70 bg-white/5 px-1.5 py-0.5 rounded border border-white/10 uppercase tracking-[1px] truncate max-w-[150px]" title="handout.live">
+            handout.live
           </span>
         </div>
         <span className="text-5xl font-black font-mono tracking-[10px] text-[#5b8def] drop-shadow-[0_0_12px_rgba(91,141,239,0.35)] leading-none">

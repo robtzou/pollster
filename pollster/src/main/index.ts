@@ -108,7 +108,7 @@ app.whenReady().then(async () => {
       const result = await dialog.showSaveDialog({
         title: 'Export Lesson',
         defaultPath: 'Lesson.sig',
-        filters: [{ name: 'Signette Pack', extensions: ['sig'] }]
+        filters: [{ name: 'Handout Pack', extensions: ['sig'] }]
       });
       
       if (result.canceled || !result.filePath) return false;
@@ -168,7 +168,7 @@ app.whenReady().then(async () => {
 
     const { filePath } = await dialog.showSaveDialog({
       title: 'Export Engagement Radar',
-      defaultPath: `Signette_Radar_${new Date().toISOString().split('T')[0]}.csv`,
+      defaultPath: `Handout_Radar_${new Date().toISOString().split('T')[0]}.csv`,
       filters: [{ name: 'CSV Files', extensions: ['csv'] }]
     });
 
@@ -202,8 +202,8 @@ app.whenReady().then(async () => {
   ipcMain.handle('import-lesson', async () => {
     try {
       const result = await dialog.showOpenDialog({
-        title: 'Load Signette Lesson',
-        filters: [{ name: 'Signette Pack', extensions: ['sig'] }],
+        title: 'Load Handout Lesson',
+        filters: [{ name: 'Handout Pack', extensions: ['sig'] }],
         properties: ['openFile']
       });
 

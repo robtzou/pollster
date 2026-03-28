@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Pollster — Join</title>
+    <title>Handout — Join</title>
     <style>
         * {
             box-sizing: border-box;
@@ -583,7 +583,7 @@
 
     <!-- 1. JOIN SCREEN: Enter room code -->
     <div id="join-ui">
-        <div class="brand">Pollster</div>
+        <div class="brand">Handout</div>
         <h1>Enter Room Code</h1>
         <div id="code-input-wrap">
             <input class="code-char" type="text" maxlength="1" inputmode="text" autocomplete="off" autocapitalize="characters" data-idx="0">
@@ -665,11 +665,11 @@
         // ═══ THEME TOGGLE ═══
         function toggleTheme() {
             const isLight = document.body.classList.toggle('light-mode');
-            localStorage.setItem('pollster-theme', isLight ? 'light' : 'dark');
+            localStorage.setItem('handout-theme', isLight ? 'light' : 'dark');
             document.getElementById('theme-toggle').innerText = isLight ? '🌙' : '☀️';
         }
         // Initialize theme early to avoid flicker
-        if (localStorage.getItem('pollster-theme') === 'light') {
+        if (localStorage.getItem('handout-theme') === 'light') {
             document.body.classList.add('light-mode');
             window.addEventListener('DOMContentLoaded', () => {
                 document.getElementById('theme-toggle').innerText = '🌙';
@@ -716,8 +716,8 @@
 
         // ═══ State ═══
         let socket = null;
-        let studentUuid = localStorage.getItem('pollster-uuid');
-        let studentName = localStorage.getItem('pollster-name');
+        let studentUuid = localStorage.getItem('handout-uuid');
+        let studentName = localStorage.getItem('handout-name');
         let selectedAnswer = null;
         let submitted = false;
         let pdfDoc = null;
@@ -876,7 +876,7 @@
         function onConnected() {
             if (!studentUuid) {
                 studentUuid = generateUUID();
-                localStorage.setItem('pollster-uuid', studentUuid);
+                localStorage.setItem('handout-uuid', studentUuid);
             }
 
             if (!studentName) {
@@ -894,7 +894,7 @@
             const name = nameInput.value.trim();
             if (!name) return;
             studentName = name;
-            localStorage.setItem('pollster-name', name);
+            localStorage.setItem('handout-name', name);
             emitToTeacher('student-register', { uuid: studentUuid, name: studentName });
             showUI('waiting');
         });

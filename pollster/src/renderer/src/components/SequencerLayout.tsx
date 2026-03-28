@@ -130,7 +130,7 @@ export default function SequencerLayout({ onExit }: SequencerLayoutProps) {
              <button onClick={onExit} className="w-8 h-8 flex items-center justify-center rounded-full bg-white/5 hover:bg-white/10 text-white/50 hover:text-white border-0 cursor-pointer transition-colors">
                ←
              </button>
-             <h2 className="text-xl font-bold text-white mb-0 mt-0">Signette Forge</h2>
+             <h2 className="text-xl font-bold text-white mb-0 mt-0">Handout Forge</h2>
           </div>
           
           <div className="flex flex-col gap-3">

@@ -3,7 +3,7 @@ export default function Settings() {
         <div style={{ padding: 40, fontFamily: 'sans-serif' }}>
             <h1 style={{ margin: 0 }}>Settings</h1>
             <p style={{ color: '#8892a4', fontSize: 16, marginTop: 12 }}>
-                Configure your Pollster experience.
+                Configure your Handout experience.
             </p>
 
             <div style={{ marginTop: 32, display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -57,7 +57,7 @@ export default function Settings() {
                         <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>About</h3>
                     </div>
                     <p style={{ margin: 0, color: '#8892a4', fontSize: 14 }}>
-                        Pollster v1.0.0 — An interactive polling tool for classrooms.
+                        Handout v1.0.0 — An interactive polling tool for classrooms.
                     </p>
                 </div>
             </div>

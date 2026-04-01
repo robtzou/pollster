@@ -182,7 +182,7 @@ export default function JoinPage() {
 
       {/* Footer */}
       <footer className="join-footer">
-        <Link to="/educators" className="footer-link">For Teachers →</Link>
+        <Link to="/" className="footer-link">For Teachers →</Link>
       </footer>
     </div>
   )

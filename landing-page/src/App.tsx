@@ -5,8 +5,8 @@ import EducatorsPage from './pages/EducatorsPage'
 function App() {
   return (
     <Routes>
-      <Route path="/" element={<JoinPage />} />
-      <Route path="/educators" element={<EducatorsPage />} />
+      <Route path="/" element={<EducatorsPage />} />
+      <Route path="/room" element={<JoinPage />} />
     </Routes>
   )
 }

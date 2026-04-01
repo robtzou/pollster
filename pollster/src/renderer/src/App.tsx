@@ -1,7 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import io from 'socket.io-client'
 import RadarDropdown from './components/RadarDropdown'
-import DashboardLayout from './components/DashboardLayout'
 import TelemetryBar from './components/TelemetryBar'
 import LiveResultsGraph from './components/LiveResultsGraph'
 import ActionSidebar from './components/ActionSidebar'
@@ -72,20 +71,7 @@ function App() {
     }
   }, [])
 
-  // ── Poll Controls ──
-  const startQuickPoll = useCallback(() => {
-    setPollActive(true)
-    setResults({ A: 0, B: 0, C: 0, D: 0 })
-    socket.emit('teacher-start-poll', {
-      question: 'Quick Poll',
-      correct: ''
-    })
-  }, [])
 
-  const stopPoll = useCallback(() => {
-    setPollActive(false)
-    socket.emit('teacher-stop-poll')
-  }, [])
 
   // ── Auto-fire Polls Rule ──
   useEffect(() => {
@@ -122,6 +108,13 @@ function App() {
       setCurrentIndex(0)
       setAppMode('dashboard')
     }
+  }, [])
+
+  const clearLesson = useCallback(async () => {
+    setActiveTimeline([])
+    setCurrentIndex(0)
+    await window.api.clearActiveLesson()
+    setAppMode('dashboard')
   }, [])
 
   const loadRawPdf = useCallback(async () => {
@@ -209,7 +202,6 @@ function App() {
   }, [resourceMode])
 
   const [radarOpen, setRadarOpen] = useState(false)
-  const [sidebarOpen, setSidebarOpen] = useState(true)
 
   if (appMode === 'forge') {
     return <SequencerLayout onExit={() => setAppMode('dashboard')} />
@@ -226,55 +218,42 @@ function App() {
           onClose={() => setEditingResources(false)}
         />
       )}
-      {/* Main Cockpit - Top flex area taking up remaining height */}
-      <main className="flex-1 min-h-0 relative bg-[#0f1117]">
-        <DashboardLayout
-          mainStage={
-            <>
-              {resourceMode ? (
-                <ResourceViewer content={resourceContent} />
-              ) : (
-                <StageRenderer
-                  block={activeTimeline[currentIndex]}
-                  serverUrl={serverUrl}
-                  pollActive={pollActive}
-                  pollQuestion={activeTimeline[currentIndex]?.type === 'pulse' ? (activeTimeline[currentIndex] as Extract<TimelineBlock, { type: 'pulse' }>).question : 'Quick Poll'}
-                  pollResults={results}
-                />
-              )}
-              <LiveResultsGraph results={results} visible={pollActive} />
-            </>
-          }
-        />
+
+      {/* Main Stage — fills all available space */}
+      <main className="flex-1 min-h-0 relative bg-[#0f1117] overflow-hidden">
+        <div className="w-full h-full relative overflow-hidden">
+          {resourceMode ? (
+            <ResourceViewer content={resourceContent} />
+          ) : (
+            <StageRenderer
+              block={activeTimeline[currentIndex]}
+              serverUrl={serverUrl}
+              pollActive={pollActive}
+              pollQuestion={activeTimeline[currentIndex]?.type === 'pulse' ? (activeTimeline[currentIndex] as Extract<TimelineBlock, { type: 'pulse' }>).question : 'Quick Poll'}
+              pollResults={results}
+            />
+          )}
+          <LiveResultsGraph results={results} visible={pollActive} />
+        </div>
       </main>
 
-      {/* Bottom Control Bar - max 20% height */}
-      <footer className="flex shrink-0 h-[20vh] min-h-[140px] max-h-[180px] bg-[#141720] border-t border-white/[0.06] overflow-hidden w-full">
-        {/* Nav Sidebar - minimized horizontal mode */}
-        <nav 
-          className="flex flex-col items-center justify-center min-w-[80px] w-[80px] border-r border-white/[0.06] bg-[rgba(18,22,33,0.95)] transition-all cursor-pointer hover:bg-white/[0.05]"
-          onClick={() => setSidebarOpen(!sidebarOpen)}
-          title="Toggle Navigation"
-        >
-          <span className="text-3xl mb-1 drop-shadow-md">📊</span>
-          <span className="text-[10px] font-bold text-white/50 tracking-wider">APP</span>
-        </nav>
-
-        {/* Telemetry Bar */}
-        <div className="flex-shrink-0 border-r border-white/[0.06] h-full flex flex-col justify-center">
+      {/* Command Bar — fixed height, zero scroll */}
+      <footer className="flex shrink-0 h-[120px] bg-[#141720] border-t border-white/[0.06] overflow-visible w-full relative">
+        {/* Telemetry */}
+        <div className="shrink-0 border-r border-white/[0.06] h-full flex flex-col justify-center">
           <TelemetryBar
             roomCode={roomCode}
             serverUrl={serverUrl}
             studentCount={studentCount}
+            connectedStudents={connectedStudents}
             pollActive={pollActive}
             onToggleRadar={() => setRadarOpen(prev => !prev)}
           />
         </div>
 
-        {/* Action Sidebar / Controls */}
-        <div className="flex-1 flex min-w-0 overflow-x-auto overflow-y-hidden custom-scrollbar">
+        {/* Action Controls */}
+        <div className="flex-1 min-w-0 overflow-visible">
           <ActionSidebar
-            pollActive={pollActive}
             connectedStudents={connectedStudents}
             questions={questions}
             resourceMode={resourceMode}
@@ -282,8 +261,6 @@ function App() {
             onEditResources={() => setEditingResources(true)}
             onToggleForge={() => setAppMode('forge')}
             onDismissQuestion={(id) => socket.emit('teacher-dismiss-question', { id })}
-            onStartQuickPoll={startQuickPoll}
-            onStopPoll={stopPoll}
             activeTimeline={activeTimeline}
             currentIndex={currentIndex}
             isProcessingPdf={isProcessingPdf}
@@ -291,6 +268,7 @@ function App() {
             onNextBlock={nextBlock}
             onLoadLesson={loadLesson}
             onLoadRawPdf={loadRawPdf}
+            onClearLesson={clearLesson}
             onToggleRadar={() => setRadarOpen(true)}
           />
         </div>

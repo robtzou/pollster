@@ -8,25 +8,25 @@ export default function EducatorsPage() {
       <nav className="navbar">
         <Link to="/" className="nav-brand" style={{ textDecoration: 'none', color: 'var(--brand-primary)' }}>HANDOUT</Link>
         <div>
-          <Link to="/" className="btn btn-primary" style={{ textDecoration: 'none' }}>Student Join</Link>
+          <Link to="/room" className="btn btn-primary" style={{ textDecoration: 'none' }}>Student Join</Link>
         </div>
       </nav>
 
       {/* Story 1: Hero Section */}
       <section className="hero animate-slide-up">
         <div className="hero-content">
-          <h1 className="hero-title">The Anti-SaaS Solution.</h1>
+          <h1 className="hero-title">One QR code to rule them all.</h1>
           <p className="hero-desc">
-            Stop renting your classroom tools. Escape the lag, the login walls, and the recurring subscription fatigue.
-            Handout is the local-first, pay-once platform that puts control back in your hands.
+            Handout your slides, links, polls, and files to anyone with the room code. Claim your room today.
+
           </p>
           <button className="btn btn-primary" style={{ marginRight: '1.5rem', marginBottom: '1rem' }}>
             Download Handout
           </button>
         </div>
-        
+
         <div className="hero-renders delay-100">
-          <div className="render-cockpit">Cockpit UI</div>
+          <div className="render-cockpit">Simple UI</div>
           <div className="render-handout">Instant Join</div>
         </div>
       </section>
@@ -35,7 +35,7 @@ export default function EducatorsPage() {
       <section className="animate-slide-up delay-200">
         <h2 className="section-title">Own Your Room</h2>
         <p className="section-subtitle">Why educators are abandoning cloud-hosted polling platforms.</p>
-        
+
         <div className="pain-points-grid">
           <div className="pain-card old-way">
             <h3 className="pain-title">The Old Way</h3>
@@ -51,7 +51,7 @@ export default function EducatorsPage() {
             <ul className="pain-list">
               <li>Pay once. Own the software forever.</li>
               <li>Zero latency via local network routing.</li>
-              <li>Instant join via QR code. No apps or accounts.</li>
+              <li><strong>One QR code to rule them all.</strong> No apps or accounts.</li>
               <li>Total data ownership on your machine.</li>
             </ul>
           </div>
@@ -62,7 +62,7 @@ export default function EducatorsPage() {
       <section>
         <h2 className="section-title">Built for the Modern Lecture</h2>
         <p className="section-subtitle">Tactile control for you. Frictionless engagement for them.</p>
-        
+
         <div className="features-grid">
           <div className="feature-block">
             <h3 className="feature-title">Digital Stamp</h3>
@@ -90,7 +90,7 @@ export default function EducatorsPage() {
         <div className="spec-sheet">
           <h3 style={{ color: 'var(--brand-primary)', marginBottom: '0.5rem', fontSize: '1.25rem' }}>// SYSTEM_ARCHITECTURE</h3>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1rem' }}>IT Administrator Verification Data</p>
-          
+
           <div className="spec-grid">
             <div className="spec-item">
               <div className="label">Client Framework</div>

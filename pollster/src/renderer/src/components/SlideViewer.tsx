@@ -1,4 +1,5 @@
 import { useRef, useEffect } from 'react'
+import logo from '../assets/logos/ball.svg'
 
 interface SlideViewerProps {
   pdfUrl: string | null
@@ -15,11 +16,11 @@ function BouncingBall() {
     const ball = ballRef.current
     if (!container || !ball) return
 
-    let x = Math.random() * (container.clientWidth - 64)
-    let y = Math.random() * (container.clientHeight - 64)
+    let x = Math.random() * (container.clientWidth - 128)
+    let y = Math.random() * (container.clientHeight - 128)
     let vx = 3.5
     let vy = 2.5
-    const ballSize = 64
+    const ballSize = 128
     let animationFrameId: number
 
     const update = () => {
@@ -56,9 +57,9 @@ function BouncingBall() {
       {/* Bouncing Element */}
       <div 
         ref={ballRef}
-        className="absolute top-0 left-0 w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full shadow-[0_0_30px_rgba(99,102,241,0.5)] flex items-center justify-center pointer-events-none will-change-transform"
+        className="absolute top-0 left-0 w-32 h-32 flex items-center justify-center pointer-events-none will-change-transform drop-shadow-[0_0_15px_rgba(255,255,255,0.15)]"
       >
-        <span className="text-xl drop-shadow-md">✨</span>
+        <img src={logo} alt="Logo" className="w-full h-full object-contain" />
       </div>
     </div>
   )

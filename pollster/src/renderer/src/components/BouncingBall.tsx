@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import logo from '../assets/logos/ball.svg'
 
 export default function BouncingBall() {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -57,10 +58,9 @@ export default function BouncingBall() {
     <div ref={containerRef} className="absolute inset-0 overflow-hidden pointer-events-none z-0">
       <div 
         ref={ballRef}
-        className="absolute top-0 left-0 w-24 h-24 bg-gradient-to-br from-indigo-500/20 to-purple-600/20 rounded-full border border-white/5 flex items-center justify-center backdrop-blur-sm"
+        className="absolute top-0 left-0 w-40 h-40 flex items-center justify-center drop-shadow-[0_0_15px_rgba(255,255,255,0.15)] opacity-50"
       >
-        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 blur-xl opacity-40 absolute inset-0 m-auto mix-blend-screen" />
-        <span className="text-white/40 font-black text-[10px] tracking-[3px] z-10 select-none">HANDOUT</span>
+        <img src={logo} alt="Logo" className="w-full h-full object-contain" />
       </div>
     </div>
   )
